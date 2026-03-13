@@ -18,9 +18,18 @@ router.get('/', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     
     let filter = {};
+    
+    // If user is logged in, show only their sessions
+    if (req.user) {
+      filter.createdBy = req.user._id;
+    } else {
+      // Show sessions without createdBy for non-logged-in users (legacy)
+      filter.createdBy = { $exists: false };
+    }
+    
     if (query) {
       const regex = new RegExp(query, 'i');
-      filter = { $or: [{ sourceText: regex }, { title: regex }] };
+      filter.$or = [{ sourceText: regex }, { title: regex }];
     }
     
     const total = await TranslationSession.countDocuments(filter);
@@ -56,7 +65,8 @@ router.get('/', async (req, res) => {
       query,
       currentPage: page,
       totalPages,
-      title: 'History'
+      title: 'History',
+      user: req.user || null
     });
   } catch (err) {
     console.error(err);
@@ -66,7 +76,8 @@ router.get('/', async (req, res) => {
       query: '',
       currentPage: 1,
       totalPages: 1,
-      title: 'History'
+      title: 'History',
+      user: req.user || null
     });
   }
 });
@@ -80,13 +91,22 @@ router.get('/search', async (req, res) => {
       return res.json({ success: true, results: [] });
     }
     
+    let filter = {};
+    
+    // If user is logged in, search only their sessions
+    if (req.user) {
+      filter.createdBy = req.user._id;
+    } else {
+      filter.createdBy = { $exists: false };
+    }
+    
     const regex = new RegExp(query, 'i');
-    const sessions = await TranslationSession.find({
-      $or: [
-        { sourceText: regex },
-        { title: regex }
-      ]
-    })
+    filter.$or = [
+      { sourceText: regex },
+      { title: regex }
+    ];
+    
+    const sessions = await TranslationSession.find(filter)
       .sort({ updatedAt: -1 })
       .limit(20)
       .populate('sourceLanguage');
@@ -125,6 +145,11 @@ router.post('/session/:id/delete', async (req, res) => {
     const session = await TranslationSession.findById(req.params.id);
     if (!session) {
       return res.status(404).json({ success: false, error: 'Session not found' });
+    }
+    
+    // Check ownership if user is logged in
+    if (req.user && session.createdBy && session.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Not authorized' });
     }
     
     await session.deleteOne();

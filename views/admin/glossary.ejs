@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Glossary — Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f8fafc;
+      min-height: 100vh;
+    }
+    .admin-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .admin-logo { font-size: 24px; font-weight: 700; }
+    .admin-nav {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+    .admin-nav a {
+      color: rgba(255,255,255,0.8);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .admin-nav a:hover, .admin-nav a.active { color: #fff; }
+    .admin-user {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .admin-user-avatar {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .admin-content {
+      padding: 40px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .admin-title {
+      font-size: 28px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 24px;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .tab {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: #fff;
+      color: #64748b;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      background: #667eea;
+      color: #fff;
+    }
+    .tab:hover:not(.active) {
+      background: #f1f5f9;
+    }
+    .panel {
+      display: none;
+    }
+    .panel.active {
+      display: block;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #374151;
+    }
+    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-danger {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+    .btn-danger:hover { background: #fee2e2; }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    th {
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+    }
+    td { font-size: 14px; color: #374151; }
+    tr:hover { background: #f8fafc; }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.show {
+      display: flex;
+    }
+    .modal {
+      background: #fff;
+      border-radius: 16px;
+      padding: 32px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.2s;
+      outline: none;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: #667eea;
+    }
+    .form-textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 24px;
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #64748b;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <header class="admin-header">
+    <div class="admin-logo">Admin Panel</div>
+    <nav class="admin-nav">
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/glossary" class="active">Glossary</a>
+      <a href="/admin/users">Users</a>
+      <a href="/">View Site</a>
+    </nav>
+    <div class="admin-user">
+      <div class="admin-user-avatar">
+        <i data-lucide="user" style="width:18px;height:18px;"></i>
+      </div>
+      <span><%= user.username %></span>
+    </div>
+  </header>
+
+  <main class="admin-content">
+    <h1 class="admin-title">Manage Glossary</h1>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="categories">Categories</button>
+      <button class="tab" data-tab="terms">Terms</button>
+    </div>
+
+    <div id="categories-panel" class="panel active">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Categories</h2>
+          <button class="btn btn-primary" onclick="openCategoryModal()">
+            <i data-lucide="plus" style="width:16px;height:16px;"></i> Add Category
+          </button>
+        </div>
+        <% if (categories.length > 0) { %>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Order</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% categories.forEach(cat => { %>
+            <tr>
+              <td><strong><%= cat.name %></strong></td>
+              <td><%= cat.description || '-' %></td>
+              <td><%= cat.order %></td>
+              <td class="actions">
+                <button class="btn btn-secondary btn-sm" onclick='editCategory(<%= JSON.stringify(cat) %>)'>Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteCategory('<%= cat._id %>')">Delete</button>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        <% } else { %>
+        <div class="empty-state">No categories yet. Create one to get started.</div>
+        <% } %>
+      </div>
+    </div>
+
+    <div id="terms-panel" class="panel">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Terms</h2>
+          <button class="btn btn-primary" onclick="openTermModal()">
+            <i data-lucide="plus" style="width:16px;height:16px;"></i> Add Term
+          </button>
+        </div>
+        <% if (terms.length > 0) { %>
+        <table>
+          <thead>
+            <tr>
+              <th>Term</th>
+              <th>Category</th>
+              <th>Definition</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% terms.forEach(term => { %>
+            <tr>
+              <td><strong><%= term.term %></strong></td>
+              <td><%= term.category?.name || '-' %></td>
+              <td><%= term.definition?.substring(0, 50) %><%= term.definition?.length > 50 ? '...' : '' %></td>
+              <td class="actions">
+                <button class="btn btn-secondary btn-sm" onclick='editTerm(<%= JSON.stringify(term) %>)'>Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteTerm('<%= term._id %>')">Delete</button>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        <% } else { %>
+        <div class="empty-state">No terms yet. Create a category first, then add terms.</div>
+        <% } %>
+      </div>
+    </div>
+
+    <a href="/admin" class="back-link">
+      <i data-lucide="arrow-left" style="width:16px;height:16px;"></i> Back to Dashboard
+    </a>
+  </main>
+
+  <!-- Category Modal -->
+  <div id="category-modal" class="modal-overlay">
+    <div class="modal">
+      <h3 class="modal-title" id="category-modal-title">Add Category</h3>
+      <form id="category-form">
+        <input type="hidden" id="category-id">
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input type="text" class="form-input" id="category-name" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-textarea" id="category-description"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Order</label>
+          <input type="number" class="form-input" id="category-order" value="0">
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Term Modal -->
+  <div id="term-modal" class="modal-overlay">
+    <div class="modal">
+      <h3 class="modal-title" id="term-modal-title">Add Term</h3>
+      <form id="term-form">
+        <input type="hidden" id="term-id">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-select" id="term-category" required>
+            <% categories.forEach(cat => { %>
+            <option value="<%= cat._id %>"><%= cat.name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Term</label>
+          <input type="text" class="form-input" id="term-term" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Definition</label>
+          <textarea class="form-textarea" id="term-definition"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea class="form-textarea" id="term-notes"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-secondary" onclick="closeTermModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+    
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab + '-panel').classList.add('active');
+      });
+    });
+    
+    // Category Modal
+    function openCategoryModal() {
+      document.getElementById('category-modal-title').textContent = 'Add Category';
+      document.getElementById('category-form').reset();
+      document.getElementById('category-id').value = '';
+      document.getElementById('category-modal').classList.add('show');
+    }
+    
+    function closeCategoryModal() {
+      document.getElementById('category-modal').classList.remove('show');
+    }
+    
+    function editCategory(cat) {
+      document.getElementById('category-modal-title').textContent = 'Edit Category';
+      document.getElementById('category-id').value = cat._id;
+      document.getElementById('category-name').value = cat.name;
+      document.getElementById('category-description').value = cat.description || '';
+      document.getElementById('category-order').value = cat.order || 0;
+      document.getElementById('category-modal').classList.add('show');
+    }
+    
+    document.getElementById('category-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('category-id').value;
+      const data = {
+        name: document.getElementById('category-name').value,
+        description: document.getElementById('category-description').value,
+        order: parseInt(document.getElementById('category-order').value) || 0
+      };
+      
+      try {
+        const url = id ? `/admin/categories/${id}` : '/admin/categories';
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.success) {
+          window.location.reload();
+        } else {
+          alert(result.error);
+        }
+      } catch (err) {
+        alert('Failed to save category');
+      }
+    });
+    
+    async function deleteCategory(id) {
+      if (!confirm('Delete this category and all its terms?')) return;
+      try {
+        const res = await fetch(`/admin/categories/${id}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (result.success) {
+          window.location.reload();
+        } else {
+          alert(result.error);
+        }
+      } catch (err) {
+        alert('Failed to delete category');
+      }
+    }
+    
+    // Term Modal
+    function openTermModal() {
+      document.getElementById('term-modal-title').textContent = 'Add Term';
+      document.getElementById('term-form').reset();
+      document.getElementById('term-id').value = '';
+      document.getElementById('term-modal').classList.add('show');
+    }
+    
+    function closeTermModal() {
+      document.getElementById('term-modal').classList.remove('show');
+    }
+    
+    function editTerm(term) {
+      document.getElementById('term-modal-title').textContent = 'Edit Term';
+      document.getElementById('term-id').value = term._id;
+      document.getElementById('term-category').value = term.category?._id || term.category;
+      document.getElementById('term-term').value = term.term;
+      document.getElementById('term-definition').value = term.definition || '';
+      document.getElementById('term-notes').value = term.notes || '';
+      document.getElementById('term-modal').classList.add('show');
+    }
+    
+    document.getElementById('term-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('term-id').value;
+      const data = {
+        category: document.getElementById('term-category').value,
+        term: document.getElementById('term-term').value,
+        definition: document.getElementById('term-definition').value,
+        notes: document.getElementById('term-notes').value
+      };
+      
+      try {
+        const url = id ? `/admin/terms/${id}` : '/admin/terms';
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.success) {
+          window.location.reload();
+        } else {
+          alert(result.error);
+        }
+      } catch (err) {
+        alert('Failed to save term');
+      }
+    });
+    
+    async function deleteTerm(id) {
+      if (!confirm('Delete this term?')) return;
+      try {
+        const res = await fetch(`/admin/terms/${id}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (result.success) {
+          window.location.reload();
+        } else {
+          alert(result.error);
+        }
+      } catch (err) {
+        alert('Failed to delete term');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard — Translator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f8fafc;
+      min-height: 100vh;
+    }
+    .admin-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .admin-logo {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .admin-nav {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+    .admin-nav a {
+      color: rgba(255,255,255,0.8);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .admin-nav a:hover, .admin-nav a.active {
+      color: #fff;
+    }
+    .admin-user {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .admin-user-avatar {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .admin-content {
+      padding: 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .admin-title {
+      font-size: 28px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 32px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .stat-icon.users { background: #dbeafe; color: #2563eb; }
+    .stat-icon.categories { background: #fef3c7; color: #d97706; }
+    .stat-icon.terms { background: #d1fae5; color: #059669; }
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .stat-label {
+      font-size: 14px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+    .quick-actions {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .quick-actions h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 16px;
+    }
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: #f8fafc;
+      border-radius: 12px;
+      text-decoration: none;
+      color: #374151;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      background: #f1f5f9;
+      transform: translateY(-2px);
+    }
+    .action-btn i {
+      color: #667eea;
+    }
+    .back-to-site {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 24px;
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .back-to-site:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header class="admin-header">
+    <div class="admin-logo">Admin Panel</div>
+    <nav class="admin-nav">
+      <a href="/admin" class="active">Dashboard</a>
+      <a href="/admin/glossary">Glossary</a>
+      <a href="/admin/users">Users</a>
+      <a href="/">View Site</a>
+    </nav>
+    <div class="admin-user">
+      <div class="admin-user-avatar">
+        <i data-lucide="user" style="width:18px;height:18px;"></i>
+      </div>
+      <span><%= user.username %></span>
+    </div>
+  </header>
+
+  <main class="admin-content">
+    <h1 class="admin-title">Dashboard</h1>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon users">
+          <i data-lucide="users" style="width:24px;height:24px;"></i>
+        </div>
+        <div class="stat-value"><%= stats.userCount %></div>
+        <div class="stat-label">Total Users</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon categories">
+          <i data-lucide="folder" style="width:24px;height:24px;"></i>
+        </div>
+        <div class="stat-value"><%= stats.categoryCount %></div>
+        <div class="stat-label">Categories</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon terms">
+          <i data-lucide="book-open" style="width:24px;height:24px;"></i>
+        </div>
+        <div class="stat-value"><%= stats.termCount %></div>
+        <div class="stat-label">Glossary Terms</div>
+      </div>
+    </div>
+
+    <div class="quick-actions">
+      <h3>Quick Actions</h3>
+      <div class="action-grid">
+        <a href="/admin/glossary" class="action-btn">
+          <i data-lucide="book" style="width:20px;height:20px;"></i>
+          <span>Manage Glossary</span>
+        </a>
+        <a href="/admin/users" class="action-btn">
+          <i data-lucide="users" style="width:20px;height:20px;"></i>
+          <span>Manage Users</span>
+        </a>
+        <a href="/" class="action-btn">
+          <i data-lucide="external-link" style="width:20px;height:20px;"></i>
+          <span>View Site</span>
+        </a>
+      </div>
+    </div>
+
+    <a href="/" class="back-to-site">
+      <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+      Back to Translator
+    </a>
+  </main>
+
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

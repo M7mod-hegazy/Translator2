@@ -211,3 +211,166 @@ window.api = api;
 window.Modal = Modal;
 window.ConfirmDelete = ConfirmDelete;
 window.setUnsaved = setUnsaved;
+
+// ── Auth Functions ──
+window.logout = async function() {
+  try {
+    await api('/auth/logout', { method: 'POST' });
+    window.location.reload();
+  } catch (e) {
+    Toast.error('Failed to logout');
+  }
+};
+
+// ── Login Modal ──
+const LoginModal = {
+  show(onLogin) {
+    // Remove existing modal if present
+    const existing = document.getElementById('login-prompt-modal');
+    if (existing) existing.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'login-prompt-modal';
+    modal.innerHTML = `
+      <div class="login-prompt-backdrop" onclick="LoginModal.close()"></div>
+      <div class="login-prompt-content">
+        <button class="login-prompt-close" onclick="LoginModal.close()">✕</button>
+        <div class="login-prompt-icon">
+          <i data-lucide="lock" style="width:32px;height:32px;"></i>
+        </div>
+        <h3 class="login-prompt-title">Login Required</h3>
+        <p class="login-prompt-text">You need to be logged in to save your translation history.</p>
+        <div class="login-prompt-actions">
+          <a href="/auth/login" class="login-prompt-btn login-prompt-primary">
+            <i data-lucide="log-in" style="width:16px;height:16px;"></i> Login
+          </a>
+          <a href="/auth/register" class="login-prompt-btn login-prompt-secondary">
+            <i data-lucide="user-plus" style="width:16px;height:16px;"></i> Create Account
+          </a>
+        </div>
+        <button class="login-prompt-skip" onclick="LoginModal.close()">Continue without saving</button>
+      </div>
+    `;
+    
+    // Add styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .login-prompt-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        z-index: 9998;
+        animation: fadeIn 0.2s ease;
+      }
+      .login-prompt-content {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: var(--bg-card, #141820);
+        border: 1px solid var(--gold-border, rgba(212,175,55,0.2));
+        border-radius: 16px;
+        padding: 32px;
+        z-index: 9999;
+        text-align: center;
+        max-width: 360px;
+        width: 90%;
+        animation: slideUp 0.3s ease;
+      }
+      .login-prompt-close {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: none;
+        border: none;
+        color: var(--text-muted, #6b7280);
+        cursor: pointer;
+        font-size: 18px;
+        padding: 4px;
+      }
+      .login-prompt-close:hover { color: var(--text-primary, #fff); }
+      .login-prompt-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 16px;
+        background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(118,75,162,0.2));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #667eea;
+      }
+      .login-prompt-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--text-primary, #fff);
+        margin: 0 0 8px;
+      }
+      .login-prompt-text {
+        font-size: 14px;
+        color: var(--text-secondary, #9ca3af);
+        margin: 0 0 24px;
+        line-height: 1.5;
+      }
+      .login-prompt-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      .login-prompt-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s;
+      }
+      .login-prompt-primary {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+      }
+      .login-prompt-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+      }
+      .login-prompt-secondary {
+        background: rgba(255,255,255,0.06);
+        color: var(--text-primary, #fff);
+        border: 1px solid var(--gold-border, rgba(212,175,55,0.2));
+      }
+      .login-prompt-secondary:hover { background: rgba(255,255,255,0.1); }
+      .login-prompt-skip {
+        background: none;
+        border: none;
+        color: var(--text-muted, #6b7280);
+        font-size: 12px;
+        cursor: pointer;
+        padding: 8px;
+      }
+      .login-prompt-skip:hover { color: var(--text-secondary, #9ca3af); }
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes slideUp { from { opacity: 0; transform: translate(-50%, -40%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+    `;
+    
+    document.head.appendChild(style);
+    document.body.appendChild(modal);
+    lucide.createIcons();
+    
+    this._callback = onLogin;
+  },
+  
+  close() {
+    const modal = document.getElementById('login-prompt-modal');
+    if (modal) {
+      modal.classList.add('is-leaving');
+      setTimeout(() => modal.remove(), 200);
+    }
+  }
+};
+
+window.LoginModal = LoginModal;

@@ -23,19 +23,6 @@
     .cat-row.is-active { background: rgba(212, 175, 55, 0.10); border-left: 3px solid var(--gold-400); }
     .cat-row-main { flex: 1; display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; cursor: pointer; min-width: 0; }
     .cat-row-name { font-size: var(--text-sm); color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .cat-row-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; padding-right: 4px; }
-    .cat-row:hover .cat-row-actions { opacity: 1; }
-    .cat-action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; transition: color .15s; }
-    .cat-action-btn:hover { color: var(--gold-300); }
-    .cat-del:hover { color: #ef4444; }
-    .term-modal-size { max-width: 480px; }
-    .term-modal-hint { font-size: 11px; color: var(--text-muted); margin: 0 0 var(--space-md); line-height: 1.5; }
-    .term-lang-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-    .term-flag { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; border-radius: 8px; flex-shrink: 0; letter-spacing: 0.05em; }
-    .term-flag-en { background: rgba(212, 175, 55, 0.12); color: var(--gold-300); }
-    .term-flag-ar { background: rgba(34, 139, 34, 0.15); color: #4ade80; }
-    .term-flag-es { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-    .term-lang-row .form-input { flex: 1; }
     .global-search-container { position: relative; margin-bottom: var(--space-lg); }
     .global-search-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--bg-card); border: 1px solid var(--gold-border); border-radius: var(--radius-lg); transition: border-color .2s, box-shadow .2s; }
     .global-search-bar:focus-within { border-color: var(--gold-border-bright); box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.08); }
@@ -53,6 +40,34 @@
     .gs-cat-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: rgba(212, 175, 55, 0.12); color: var(--gold-400); white-space: nowrap; text-align: center; }
     .gs-no-results { padding: 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
     .gs-result-row mark { background: rgba(212, 175, 55, 0.25); color: inherit; border-radius: 2px; padding: 0 1px; }
+    .admin-edit-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .admin-edit-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    .preview-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: rgba(212, 175, 55, 0.12);
+      color: var(--gold-400);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
     @media (max-width: 768px) {
       .gloss-layout { flex-direction: column !important; gap: var(--space-sm); }
       .gloss-cats { width: 100% !important; min-width: 0 !important; max-height: 160px; overflow-y: auto; }
@@ -72,17 +87,20 @@
   </style>
 </head>
 <body>
-  <%- include('../partials/sidebar.ejs', { activeTab: 'glossary' }) %>
+  <%- include('../partials/sidebar.ejs', { activeTab: 'glossary', user: user }) %>
   
   <main class="main-content">
-  
-    
     <header class="page-header">
       <div class="page-header-left">
         <h1 class="page-title">Glossary</h1>
+        <span class="preview-badge"><i data-lucide="eye" style="width:12px;height:12px;"></i> Preview Mode</span>
       </div>
       <div class="page-header-right">
-        <button class="btn btn-primary btn-sm" onclick="openCatModal()"><i data-lucide="plus" style="width:14px;height:14px"></i> Add Category</button>
+        <% if (user && user.role === 'admin') { %>
+        <a href="/admin/glossary" class="admin-edit-btn">
+          <i data-lucide="settings" style="width:14px;height:14px;"></i> Edit in Admin
+        </a>
+        <% } %>
       </div>
     </header>
 
@@ -109,10 +127,6 @@
                 <span class="cat-row-name"><%= cat.name %></span>
                 <span class="nav-item-badge"><%= cat.termCount || 0 %></span>
               </div>
-              <div class="cat-row-actions">
-                <button class="cat-action-btn" onclick="editCategory('<%= cat._id %>','<%= cat.name %>')" title="Edit"><i data-lucide="pencil" style="width:12px;height:12px;"></i></button>
-                <button class="cat-action-btn cat-del" onclick="deleteCategory('<%= cat._id %>')" title="Delete"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
-              </div>
             </div>
             <% }); %>
             <% if (!categories || categories.length === 0) { %>
@@ -123,7 +137,6 @@
         <div class="card gloss-terms">
           <div class="gloss-terms-head">
             <h3 id="terms-title"><%= (categories && categories[0]) ? categories[0].name : 'Select a category' %></h3>
-            <button class="btn btn-primary btn-sm" id="add-term-btn" onclick="openTermModal()"><i data-lucide="plus" style="width:14px;height:14px"></i> Add Term</button>
           </div>
           <div id="terms-container" style="padding:var(--space-md);">
             <div id="terms-loading" style="display:none;" class="page-loader">
@@ -135,7 +148,6 @@
                   <th>English</th>
                   <th style="text-align:right;">Arabic</th>
                   <th>Spanish</th>
-                  <th style="width:80px;"></th>
                 </tr>
               </thead>
               <tbody id="terms-body"></tbody>
@@ -143,62 +155,13 @@
             <div id="terms-empty" class="empty-state" style="display:none;">
               <div class="empty-state-icon">📖</div>
               <div class="empty-state-title">No terms in this category</div>
-              <div class="empty-state-text">Add your first entry.</div>
+              <div class="empty-state-text">This category is empty.</div>
             </div>
           </div>
         </div>
       </div>
     </div>
   </main>
-
-  <!-- Add Category Modal -->
-  <div class="modal-backdrop" id="add-category-modal-backdrop" onclick="Modal.close('add-category-modal')"></div>
-  <div class="modal" id="add-category-modal">
-    <div class="modal-header">
-      <h3 id="cat-modal-title">New Category</h3>
-      <button class="modal-close" onclick="Modal.close('add-category-modal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="edit-cat-id">
-      <div class="form-group">
-        <label class="form-label">Category Name</label>
-        <input type="text" class="form-input" id="new-cat-name" placeholder="e.g., Legal Terms">
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="Modal.close('add-category-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveCategory()">Save</button>
-    </div>
-  </div>
-
-  <!-- Add/Edit Term Modal -->
-  <div class="modal-backdrop" id="term-modal-backdrop" onclick="Modal.close('term-modal')"></div>
-  <div class="modal term-modal-size" id="term-modal">
-    <div class="modal-header">
-      <h3 id="term-modal-title">Add Term</h3>
-      <button class="modal-close" onclick="Modal.close('term-modal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="edit-term-id">
-      <p class="term-modal-hint">Enter the same concept in at least 2 languages. All directions are automatic.</p>
-      <div class="term-lang-row">
-        <div class="term-flag term-flag-en">EN</div>
-        <input type="text" class="form-input" id="modal-term-en" placeholder="English term">
-      </div>
-      <div class="term-lang-row">
-        <div class="term-flag term-flag-ar">AR</div>
-        <input type="text" class="form-input" id="modal-term-ar" placeholder="المصطلح بالعربية" dir="rtl">
-      </div>
-      <div class="term-lang-row">
-        <div class="term-flag term-flag-es">ES</div>
-        <input type="text" class="form-input" id="modal-term-es" placeholder="Término en español">
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="Modal.close('term-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveTerm()">Save Term</button>
-    </div>
-  </div>
 
   <script src="/js/app.js?v=2"></script>
   <script>
@@ -215,7 +178,6 @@
     }
 
     function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-    function enc(s) { return encodeURIComponent(s); }
 
     function loadTerms(catId) {
       document.getElementById('terms-loading').style.display = 'flex';
@@ -230,98 +192,14 @@
               + '<td style="font-weight:500;min-width:120px;">' + esc(t.term_en || '\u2014') + '</td>'
               + '<td style="min-width:120px;">' + esc(t.term_ar || '\u2014') + '</td>'
               + '<td style="min-width:120px;">' + esc(t.term_es || '\u2014') + '</td>'
-              + '<td style="text-align:right;white-space:nowrap;width:80px;">'
-              + '<button style="float:left;padding:2px 4px;" class="cat-action-btn" onclick="openEditModal(\'' + t.id + '\',\'' + enc(t.term_en || '') + '\',\'' + enc(t.term_ar || '') + '\',\'' + enc(t.term_es || '') + '\')" title="Edit"><i data-lucide="pencil" style="width:12px;height:12px;"></i></button>'
-              + '<button style="float:left;padding:2px 4px;" class="cat-action-btn cat-del" onclick="deleteTerm(\'' + t.id + '\',this)" title="Delete"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>'
-              + '</td></tr>';
+              + '</tr>';
           }).join('');
           document.getElementById('terms-table').style.display = 'table';
-          lucide.createIcons();
         } else {
           document.getElementById('terms-empty').style.display = 'flex';
         }
         document.getElementById('terms-loading').style.display = 'none';
       }).catch(function() { Toast.error('Failed to load terms.'); document.getElementById('terms-loading').style.display = 'none'; });
-    }
-
-    // Category CRUD
-    function saveCategory() {
-      var name = document.getElementById('new-cat-name').value.trim();
-      var editId = document.getElementById('edit-cat-id').value;
-      if (!name) { Toast.warning('Name is required.'); return; }
-      var url = editId ? '/glossary/category/' + editId + '/' : '/glossary/category/';
-      var method = editId ? 'PUT' : 'POST';
-      api(url, { method: method, body: JSON.stringify({ name: name }) }).then(function(res) {
-        if (res.success) { Modal.close('add-category-modal'); location.reload(); }
-      }).catch(function(e) { Toast.error(e.message); });
-    }
-
-    function openCatModal() {
-      document.getElementById('cat-modal-title').textContent = 'New Category';
-      document.getElementById('edit-cat-id').value = '';
-      document.getElementById('new-cat-name').value = '';
-      Modal.open('add-category-modal');
-    }
-
-    function editCategory(id, name) {
-      document.getElementById('cat-modal-title').textContent = 'Edit Category';
-      document.getElementById('edit-cat-id').value = id;
-      document.getElementById('new-cat-name').value = name;
-      Modal.open('add-category-modal');
-    }
-
-    function deleteCategory(id) {
-      ConfirmDelete.show('Delete Category', 'This will permanently delete this category and all its terms.', function() {
-        api('/glossary/category/' + id + '/', { method: 'DELETE' }).then(function(res) {
-          if (res.success) { location.reload(); }
-        }).catch(function(e) { Toast.error(e.message || 'Failed.'); });
-      });
-    }
-
-    // Term CRUD
-    function openTermModal() {
-      document.getElementById('term-modal-title').textContent = 'Add Term';
-      document.getElementById('edit-term-id').value = '';
-      document.getElementById('modal-term-en').value = '';
-      document.getElementById('modal-term-ar').value = '';
-      document.getElementById('modal-term-es').value = '';
-      Modal.open('term-modal');
-    }
-
-    function openEditModal(id, en, ar, es) {
-      document.getElementById('term-modal-title').textContent = 'Edit Term';
-      document.getElementById('edit-term-id').value = id;
-      document.getElementById('modal-term-en').value = decodeURIComponent(en);
-      document.getElementById('modal-term-ar').value = decodeURIComponent(ar);
-      document.getElementById('modal-term-es').value = decodeURIComponent(es);
-      Modal.open('term-modal');
-    }
-
-    function saveTerm() {
-      var en = document.getElementById('modal-term-en').value.trim();
-      var ar = document.getElementById('modal-term-ar').value.trim();
-      var es = document.getElementById('modal-term-es').value.trim();
-      var editId = document.getElementById('edit-term-id').value;
-      var filled = [en, ar, es].filter(Boolean).length;
-      if (filled < 2) { Toast.warning('Fill at least 2 languages.'); return; }
-      var url = editId ? '/glossary/term/' + editId + '/' : '/glossary/term/';
-      var method = editId ? 'PUT' : 'POST';
-      var payload = { term_en: en, term_ar: ar, term_es: es };
-      if (!editId) payload.category_id = activeCategoryId;
-      api(url, { method: method, body: JSON.stringify(payload) }).then(function() {
-        Modal.close('term-modal');
-        loadTerms(activeCategoryId);
-        Toast.success(editId ? 'Term updated.' : 'Term added.');
-      }).catch(function(e) { Toast.error(e.message); });
-    }
-
-    function deleteTerm(id, btn) {
-      ConfirmDelete.show('Delete Term', 'Are you sure you want to delete this glossary term?', function() {
-        api('/glossary/term/' + id + '/', { method: 'DELETE' }).then(function() {
-          btn.closest('tr').remove();
-          Toast.success('Term deleted.');
-        }).catch(function() { Toast.error('Failed.'); });
-      });
     }
 
     // Global Search
@@ -352,11 +230,11 @@
             gsResults.innerHTML = '<div class="gs-no-results">No terms found for "' + escGs(q) + '"</div>';
           } else {
             gsResults.innerHTML = items.map(function(t) {
-              return '<div class="gs-result-row" onclick="openTermFromSearch(\'' + t.id + '\')" title="Click to edit">'
+              return '<div class="gs-result-row" onclick="selectCategory(\'' + t.category_id + '\',\'' + escGs(t.category_name).replace(/'/g, "\\'") + '\')">'
                 + '<span class="gs-result-term">' + highlightMatch(t.term_en, q) + '</span>'
                 + '<span class="gs-result-term">' + highlightMatch(t.term_ar, q) + '</span>'
                 + '<span class="gs-result-term">' + highlightMatch(t.term_es, q) + '</span>'
-                + '<span class="gs-cat-badge" onclick="event.stopPropagation();selectCategory(\'' + t.category_id + '\',\'' + escGs(t.category_name).replace(/'/g, "\\'") + '\')">' + escGs(t.category_name) + '</span>'
+                + '<span class="gs-cat-badge">' + escGs(t.category_name) + '</span>'
                 + '</div>';
             }).join('');
           }
@@ -372,37 +250,9 @@
       gsInput.focus();
     }
 
-    function openTermFromSearch(termId) {
-      api('/glossary/term?category_id=' + activeCategoryId).then(function(res) {
-        var term = (res.terms || []).find(function(t) { return t.id == termId; });
-        if (term) {
-          openEditModal(term.id, term.term_en || '', term.term_ar || '', term.term_es || '');
-        }
-      });
-    }
-
     document.addEventListener('click', function(e) {
       if (!e.target.closest('.global-search-container')) gsDropdown.style.display = 'none';
     });
   </script>
-
-  <!-- Delete Confirmation Modal -->
-  <div class="modal-backdrop" id="delete-modal-backdrop" onclick="ConfirmDelete.cancel()"></div>
-  <div class="modal delete-modal" id="delete-modal">
-    <div class="modal-header" style="border-bottom:none;padding-bottom:0;">
-      <h3 id="delete-modal-title" style="color:var(--error);">Delete Item</h3>
-      <button class="modal-close" onclick="ConfirmDelete.cancel()">✕</button>
-    </div>
-    <div class="modal-body" style="padding-top:var(--space-sm);">
-      <p id="delete-modal-msg" style="color:var(--text-secondary);font-size:var(--text-sm);line-height:1.5;margin:0;">
-        Are you sure? This action cannot be undone.</p>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="ConfirmDelete.cancel()">Cancel</button>
-      <button class="btn btn-danger" id="delete-modal-confirm" onclick="ConfirmDelete.exec()">
-        <i data-lucide="trash-2"></i> Delete
-      </button>
-    </div>
-  </div>
 </body>
 </html>

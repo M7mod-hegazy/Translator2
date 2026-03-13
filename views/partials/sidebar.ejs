@@ -30,6 +30,82 @@
     </nav>
 
     <div class="app-sidebar__footer">
+        <% if (typeof user !== 'undefined' && user) { %>
+            <% if (user.role === 'admin') { %>
+            <a href="/admin" class="app-sidebar__link" style="margin-bottom:8px;">
+                <span class="app-sidebar__icon-wrap">
+                    <i data-lucide="shield" class="app-sidebar__icon" aria-hidden="true"></i>
+                </span>
+                <span class="app-sidebar__text">Admin</span>
+            </a>
+            <% } %>
+            <div class="sidebar-user">
+                <div class="sidebar-user-info">
+                    <i data-lucide="user" style="width:14px;height:14px;"></i>
+                    <span><%= user.username %></span>
+                </div>
+                <button class="sidebar-logout" onclick="logout()" title="Logout">
+                    <i data-lucide="log-out" style="width:14px;height:14px;"></i>
+                </button>
+            </div>
+        <% } else { %>
+            <a href="/auth/login" class="sidebar-login-btn">
+                <i data-lucide="log-in" style="width:14px;height:14px;"></i>
+                <span>Login</span>
+            </a>
+        <% } %>
         <span class="app-sidebar__version">v2.0</span>
     </div>
 </aside>
+
+<style>
+    .sidebar-user {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        background: rgba(212, 175, 55, 0.08);
+        border-radius: 8px;
+        margin-bottom: 8px;
+    }
+    .sidebar-user-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-primary);
+        font-size: 13px;
+    }
+    .sidebar-logout {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+    .sidebar-logout:hover {
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+    }
+    .sidebar-login-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: linear-gradient(135deg, var(--gold-400, #d4af37) 0%, var(--gold-500, #b8960c) 100%);
+        color: #000;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        transition: all 0.2s;
+        border: 1px solid rgba(212, 175, 55, 0.3);
+    }
+    .sidebar-login-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+        background: linear-gradient(135deg, var(--gold-300, #e5c158) 0%, var(--gold-400, #d4af37) 100%);
+    }
+</style>

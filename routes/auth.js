@@ -9,7 +9,8 @@ const { ensureGuest, ensureAuth } = require('../middleware/auth');
 router.get('/login', ensureGuest, (req, res) => {
   res.render('accounts/login', {
     title: 'Login',
-    error: req.flash('error')
+    error: null,
+    user: null
   });
 });
 
@@ -26,7 +27,7 @@ router.post('/login', (req, res, next) => {
       if (err) {
         return res.status(500).json({ error: 'Login failed' });
       }
-      return res.json({ success: true, user: { id: user._id, username: user.username } });
+      return res.json({ success: true, user: { id: user._id, username: user.username, email: user.email, role: user.role } });
     });
   })(req, res, next);
 });
@@ -34,8 +35,9 @@ router.post('/login', (req, res, next) => {
 // Register page
 router.get('/register', ensureGuest, (req, res) => {
   res.render('accounts/register', {
-    title: 'Register',
-    error: req.flash('error')
+    title: 'Sign Up',
+    error: null,
+    user: null
   });
 });
 
@@ -56,7 +58,8 @@ router.post('/register', async (req, res) => {
       email,
       password,
       firstName,
-      lastName
+      lastName,
+      role: 'user'
     });
     
     await user.save();
@@ -66,7 +69,7 @@ router.post('/register', async (req, res) => {
       if (err) {
         return res.status(500).json({ error: 'Registration successful but login failed' });
       }
-      res.json({ success: true, user: { id: user._id, username: user.username } });
+      res.json({ success: true, user: { id: user._id, username: user.username, email: user.email, role: user.role } });
     });
   } catch (err) {
     console.error(err);
@@ -75,13 +78,22 @@ router.post('/register', async (req, res) => {
 });
 
 // Logout
-router.get('/logout', ensureAuth, (req, res) => {
+router.post('/logout', (req, res) => {
   req.logout((err) => {
     if (err) {
       return res.status(500).json({ error: 'Logout failed' });
     }
-    res.redirect('/auth/login');
+    res.json({ success: true });
   });
+});
+
+// Get current user
+router.get('/me', (req, res) => {
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    res.json({ user: { id: req.user._id, username: req.user.username, email: req.user.email, role: req.user.role } });
+  } else {
+    res.json({ user: null });
+  }
 });
 
 // API Login - JWT
@@ -100,12 +112,12 @@ router.post('/api/login', async (req, res) => {
     }
     
     const token = jwt.sign(
-      { sub: user._id, username: user.username },
+      { sub: user._id, username: user.username, role: user.role },
       process.env.JWT_SECRET || 'translator-secret',
       { expiresIn: '7d' }
     );
     
-    res.json({ token, user: { id: user._id, username: user.username, email: user.email } });
+    res.json({ token, user: { id: user._id, username: user.username, email: user.email, role: user.role } });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }

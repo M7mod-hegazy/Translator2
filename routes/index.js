@@ -18,14 +18,16 @@ router.get('/', async (req, res) => {
     res.render('translator/home', {
       sessions,
       categories,
-      title: 'Translate'
+      title: 'Translate',
+      user: req.user || null
     });
   } catch (err) {
     console.error(err);
     res.render('translator/home', {
       sessions: [],
       categories: [],
-      title: 'Translate'
+      title: 'Translate',
+      user: req.user || null
     });
   }
 });
@@ -33,7 +35,8 @@ router.get('/', async (req, res) => {
 // Settings page
 router.get('/settings', (req, res) => {
   res.render('accounts/settings', {
-    title: 'Settings'
+    title: 'Settings',
+    user: req.user || null
   });
 });
 
@@ -47,13 +50,15 @@ router.get('/dashboard', async (req, res) => {
     
     res.render('projects/dashboard', {
       projects,
-      title: 'Dashboard'
+      title: 'Dashboard',
+      user: req.user || null
     });
   } catch (err) {
     console.error(err);
     res.render('projects/dashboard', {
       projects: [],
-      title: 'Dashboard'
+      title: 'Dashboard',
+      user: req.user || null
     });
   }
 });

@@ -4,6 +4,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const passport = require('passport');
 const path = require('path');
 
 const app = express();
@@ -13,6 +15,22 @@ app.use(cors());
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'translator-session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  }
+}));
+
+// Passport initialization
+require('../config/passport');
+app.use(passport.initialize());
+app.use(passport.session());
 
 // View engine
 app.set('view engine', 'ejs');
@@ -49,9 +67,11 @@ app.use(async (req, res, next) => {
 
 // Routes
 app.use('/', require('../routes/index'));
+app.use('/auth', require('../routes/auth'));
 app.use('/translate', require('../routes/translate'));
 app.use('/projects', require('../routes/projects'));
 app.use('/glossary', require('../routes/glossary'));
+app.use('/admin', require('../routes/admin'));
 app.use('/api', require('../routes/api'));
 app.use('/api/translate', require('../routes/translateApi'));
 

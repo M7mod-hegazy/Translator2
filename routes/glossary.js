@@ -19,13 +19,15 @@ router.get('/', async (req, res) => {
     
     res.render('glossary/glossary', {
       categories: categoriesWithCount,
-      title: 'Glossary'
+      title: 'Glossary',
+      user: req.user || null
     });
   } catch (err) {
     console.error(err);
     res.render('glossary/glossary', {
       categories: [],
-      title: 'Glossary'
+      title: 'Glossary',
+      user: req.user || null
     });
   }
 });

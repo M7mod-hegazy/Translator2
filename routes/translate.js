@@ -16,14 +16,16 @@ router.get('/', async (req, res) => {
     res.render('translator/home', {
       sessions,
       languages,
-      title: 'Translate'
+      title: 'Translate',
+      user: req.user || null
     });
   } catch (err) {
     console.error(err);
     res.render('translator/home', {
       sessions: [],
       languages: [],
-      title: 'Translate'
+      title: 'Translate',
+      user: req.user || null
     });
   }
 });
@@ -31,13 +33,19 @@ router.get('/', async (req, res) => {
 // Create new translation session
 router.post('/session', async (req, res) => {
   try {
+    // Require authentication to create session
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required', requireLogin: true });
+    }
+    
     const { sourceText, sourceLanguage, title, category } = req.body;
     
     const session = new TranslationSession({
       sourceText,
       sourceLanguage,
       title: title || '',
-      category: category || null
+      category: category || null,
+      createdBy: req.user._id
     });
     
     await session.save();
@@ -67,11 +75,21 @@ router.get('/session/:id', async (req, res) => {
 // Update translation session
 router.put('/session/:id', async (req, res) => {
   try {
+    // Require authentication
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required', requireLogin: true });
+    }
+    
     const { targetLang, translation, title } = req.body;
     
     const session = await TranslationSession.findById(req.params.id);
     if (!session) {
       return res.status(404).json({ error: 'Session not found' });
+    }
+    
+    // Ensure user owns this session
+    if (session.createdBy && session.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Not authorized' });
     }
     
     if (targetLang && translation !== undefined) {
@@ -114,12 +132,14 @@ router.get('/tm', async (req, res) => {
     
     res.render('translator/tm_browser', {
       memories,
-      title: 'Translation Memory'
+      title: 'Translation Memory',
+      user: req.user || null
     });
   } catch (err) {
     res.render('translator/tm_browser', {
       memories: [],
-      title: 'Translation Memory'
+      title: 'Translation Memory',
+      user: req.user || null
     });
   }
 });

@@ -3,80 +3,298 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Register — Translator</title>
+  <title>Sign Up — Translator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="/css/design-system.css">
-  <link rel="stylesheet" href="/css/components.css">
-  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #080a12;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .auth-container {
+      width: 100%;
+      max-width: 420px;
+    }
+    .auth-card {
+      background: #141820;
+      border: 1px solid rgba(212, 175, 55, 0.2);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      animation: fadeInUp 0.5s ease-out;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .auth-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .auth-logo {
+      font-size: 32px;
+      font-weight: 700;
+      color: #d4af37;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .auth-subtitle {
+      color: #9ca3af;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-row {
+      display: flex;
+      gap: 12px;
+    }
+    .form-row .form-group {
+      flex: 1;
+    }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #9ca3af;
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(212, 175, 55, 0.2);
+      border-radius: 10px;
+      font-size: 15px;
+      color: #fff;
+      transition: all 0.2s;
+      outline: none;
+    }
+    .form-input:focus {
+      border-color: #d4af37;
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #d4af37 0%, #b8960c 100%);
+      color: #000;
+      font-weight: 600;
+      width: 100%;
+      margin-top: 8px;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -10px rgba(212, 175, 55, 0.4);
+      background: linear-gradient(135deg, #e5c158 0%, #d4af37 100%);
+    }
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      margin: 24px 0;
+      color: #4b5563;
+      font-size: 13px;
+    }
+    .auth-divider::before,
+    .auth-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(212, 175, 55, 0.1);
+    }
+    .auth-divider span {
+      padding: 0 16px;
+    }
+    .auth-footer {
+      text-align: center;
+      color: #9ca3af;
+      font-size: 14px;
+    }
+    .auth-footer a {
+      color: #d4af37;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .auth-footer a:hover {
+      text-decoration: underline;
+    }
+    .back-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 24px;
+      color: #6b7280;
+      font-size: 14px;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .back-link:hover {
+      color: #d4af37;
+    }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 1000;
+      animation: slideUp 0.3s ease-out;
+    }
+    .toast-error {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+    .toast-success {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translate(-50%, 20px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+    .password-hint {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+  </style>
 </head>
 <body>
-  <div class="auth-layout">
-    <div class="auth-card" style="animation: fadeInUp 0.5s var(--ease-out) forwards;">
-      <div class="auth-logo">
-        <div class="auth-logo-text">Translator</div>
-        <p class="auth-logo-sub">Create your account</p>
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-logo">Translator</div>
+        <p class="auth-subtitle">Create your account</p>
       </div>
 
-      <form class="auth-form" id="register-form">
+      <form id="register-form">
         <div class="form-group">
           <label class="form-label" for="username">Username</label>
-          <input type="text" class="form-input" id="username" name="username" required autofocus>
+          <input type="text" class="form-input" id="username" name="username" placeholder="Choose a username" required autofocus>
         </div>
         <div class="form-group">
           <label class="form-label" for="email">Email</label>
-          <input type="email" class="form-input" id="email" name="email" required>
+          <input type="email" class="form-input" id="email" name="email" placeholder="Enter your email" required>
         </div>
         <div class="form-group">
           <label class="form-label" for="password">Password</label>
-          <input type="password" class="form-input" id="password" name="password" required minlength="6">
+          <input type="password" class="form-input" id="password" name="password" placeholder="Create a password" required minlength="6">
+          <p class="password-hint">Must be at least 6 characters</p>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="firstName">First Name (optional)</label>
-          <input type="text" class="form-input" id="firstName" name="firstName">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="firstName">First Name</label>
+            <input type="text" class="form-input" id="firstName" name="firstName" placeholder="Optional">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="lastName">Last Name</label>
+            <input type="text" class="form-input" id="lastName" name="lastName" placeholder="Optional">
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary btn-block">
-          <i data-lucide="user-plus"></i> Create Account
+        <button type="submit" class="btn btn-primary">
+          <i data-lucide="user-plus" style="width:18px;height:18px;"></i> Create Account
         </button>
       </form>
+
+      <div class="auth-divider"><span>or</span></div>
 
       <div class="auth-footer">
         Already have an account? <a href="/auth/login">Sign in</a>
       </div>
     </div>
+
+    <a href="/" class="back-link">
+      <i data-lucide="arrow-left" style="width:16px;height:16px;"></i> Back to Translator
+    </a>
   </div>
 
-  <script src="/js/app.js"></script>
   <script>
     lucide.createIcons();
+    
+    function showToast(message, type = 'error') {
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+      
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => toast.remove(), 3000);
+    }
     
     document.getElementById('register-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.target;
-      const data = {
-        username: form.username.value,
-        email: form.email.value,
-        password: form.password.value,
-        firstName: form.firstName.value
-      };
+      const btn = form.querySelector('button[type="submit"]');
+      const originalText = btn.innerHTML;
+      
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" style="width:18px;height:18px;animation:spin 1s linear infinite;"></i> Creating account...';
+      lucide.createIcons();
       
       try {
         const res = await fetch('/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
+          body: JSON.stringify({
+            username: form.username.value,
+            email: form.email.value,
+            password: form.password.value,
+            firstName: form.firstName.value,
+            lastName: form.lastName.value
+          })
         });
         
         const result = await res.json();
+        
         if (result.success) {
-          window.location.href = '/';
+          showToast('Account created!', 'success');
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 500);
         } else {
-          Toast.error(result.error || 'Registration failed');
+          showToast(result.error || 'Registration failed');
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+          lucide.createIcons();
         }
       } catch (err) {
-        Toast.error('Registration failed');
+        showToast('Registration failed. Please try again.');
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        lucide.createIcons();
       }
     });
   </script>

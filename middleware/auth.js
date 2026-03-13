@@ -1,18 +1,36 @@
-// No auth required - direct access
+// Require authentication
 exports.ensureAuth = (req, res, next) => {
-  next();
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ error: 'Login required', needLogin: true });
 };
 
+// Guest only (not logged in)
 exports.ensureGuest = (req, res, next) => {
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    return res.redirect('/');
+  }
   next();
 };
 
-// API Authentication - optional, allows anonymous access
+// Require admin role
+exports.ensureAdmin = (req, res, next) => {
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    if (req.user && req.user.role === 'admin') {
+      return next();
+    }
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  res.status(401).json({ error: 'Login required', needLogin: true });
+};
+
+// API Authentication - optional, allows anonymous access but sets user if logged in
 exports.apiAuth = (req, res, next) => {
   next();
 };
 
-// Check if user owns resource - skip check
+// Check if user owns resource
 exports.checkOwnership = (model, param = 'id') => {
   return async (req, res, next) => {
     try {
