@@ -1,30 +1,9 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
-// Ensure upload directory exists
-const uploadDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const yearMonth = new Date().toISOString().slice(0, 7).replace('-', '/');
-    const dest = path.join(uploadDir, yearMonth);
-    
-    if (!fs.existsSync(dest)) {
-      fs.mkdirSync(dest, { recursive: true });
-    }
-    cb(null, dest);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
+// Use memory storage for serverless (Vercel has read-only filesystem)
+const storage = multer.memoryStorage();
 
 // File filter
 const fileFilter = (req, file, cb) => {
@@ -57,9 +36,9 @@ const upload = multer({
   }
 });
 
-// Document parser
-async function parseDocument(filePath, fileType) {
-  const content = fs.readFileSync(filePath, 'utf8');
+// Document parser (works with buffer from memory storage)
+async function parseDocument(buffer, fileType) {
+  const content = buffer.toString('utf8');
   
   switch (fileType) {
     case 'txt':
@@ -73,7 +52,7 @@ async function parseDocument(filePath, fileType) {
     case 'docx':
       // Use mammoth for docx
       const mammoth = require('mammoth');
-      const result = await mammoth.extractRawText({ path: filePath });
+      const result = await mammoth.extractRawText({ buffer });
       return { text: result.value, segments: splitIntoSegments(result.value) };
     
     default:
@@ -98,6 +77,5 @@ function splitIntoSegments(text) {
 
 module.exports = {
   upload,
-  parseDocument,
-  uploadDir
+  parseDocument
 };

@@ -3,7 +3,7 @@ const router = express.Router();
 const Category = require('../models/GlossaryCategory');
 const GlossaryTerm = require('../models/GlossaryTerm');
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // ── Glossary Index ──
 router.get('/', async (req, res) => {
