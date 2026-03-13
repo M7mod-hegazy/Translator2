@@ -1,0 +1,122 @@
+/* ═══════════════════════════════════════════════════════════
+   Translator Editor — Segment styles, split layout
+   Gold-bordered segments with premium depth
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Segment Row ── */
+.segment-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--gold-border);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border-left: 3px solid transparent;
+  min-height: 44px;
+}
+.segment-row:hover {
+  background: rgba(193, 158, 103, 0.04);
+}
+.segment-row.is-active {
+  background: rgba(193, 158, 103, 0.07);
+  border-left-color: var(--gold-300);
+  box-shadow: inset 0 0 20px rgba(193, 158, 103, 0.03);
+}
+
+.segment-index {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  min-width: 24px;
+  text-align: right;
+  padding-top: 3px;
+  flex-shrink: 0;
+}
+
+.segment-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 6px;
+  box-shadow: 0 0 4px currentColor;
+}
+.status-untranslated { background: var(--text-muted); color: var(--text-muted); }
+.status-draft { background: var(--warning); color: var(--warning); }
+.status-translated { background: var(--success); color: var(--success); }
+.status-reviewed { background: var(--info); color: var(--info); }
+.status-approved { background: #a78bfa; color: #a78bfa; }
+
+.segment-text {
+  flex: 1;
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  word-wrap: break-word;
+  color: var(--text-primary);
+}
+
+/* ── Target Input ── */
+.segment-input-wrap {
+  flex: 1;
+  min-width: 0;
+}
+.segment-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  resize: none;
+  overflow: hidden;
+  transition: all var(--transition-fast);
+  outline: none;
+}
+.segment-input:focus {
+  background: var(--bg-input);
+  border-color: var(--gold-border-strong);
+  box-shadow: var(--gold-glow);
+}
+.segment-input::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+.segment-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Bottom Panel Tabs ── */
+.tab-panels {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+/* ── TM Match Item ── */
+.tm-match:last-child {
+  border-bottom: none;
+}
+
+/* ── RTL Support ── */
+[dir="rtl"] .segment-text,
+[dir="rtl"] .segment-input {
+  text-align: right;
+  direction: rtl;
+}
+[dir="rtl"] .segment-row {
+  border-left: none;
+  border-right: 3px solid transparent;
+}
+[dir="rtl"] .segment-row.is-active {
+  border-left-color: transparent;
+  border-right-color: var(--gold-300);
+}
+
+/* ── Scrollbar sync ── */
+.editor-source, .editor-target {
+  scroll-behavior: smooth;
+}

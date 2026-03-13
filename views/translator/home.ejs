@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Translator — Professional Translation Memory and CAT Tool">
+  <title>Translate — Translator</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Design System -->
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/mobile.css">
+  <link rel="stylesheet" href="/css/translate.css">
+  <style>
+    /* Lucide SVG global sizing */
+    .lucide, svg.lucide { width: 16px !important; height: 16px !important; flex-shrink: 0; vertical-align: middle; }
+    .btn .lucide, .btn svg.lucide { width: 14px !important; height: 14px !important; }
+    .btn-sm .lucide, .btn-sm svg.lucide { width: 13px !important; height: 13px !important; }
+    .app-sidebar__icon, .app-sidebar__icon svg, .app-sidebar .app-sidebar__icon-wrap svg { width: 20px !important; height: 20px !important; }
+    .app-sidebar .app-sidebar__icon-wrap svg { stroke: currentColor; }
+  </style>
+</head>
+
+<body>
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <%- include('../partials/sidebar.ejs', { activeTab: 'translate' }) %>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="top-nav">
+        <div class="top-nav__left">
+          <h1 class="top-nav__page-title">Translate</h1>
+        </div>
+        <div class="top-nav__right">
+          <div class="top-nav__actions">
+            <div class="header-glossary">
+              <div class="custom-select-wrapper" id="glossary-custom-select">
+                <div class="custom-select-trigger">
+                  <span id="custom-select-label">No Glossary</span>
+                  <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+                </div>
+                <div class="custom-options">
+                  <div class="custom-option is-selected" data-value="">No Glossary</div>
+                  <% (categories || []).forEach(cat => { %>
+                    <div class="custom-option" data-value="<%= cat._id %>"><%= cat.name %></div>
+                  <% }); %>
+                </div>
+              </div>
+              <input type="hidden" id="category-select" value="">
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <header class="header-wrapper">
+        <!-- Language controls -->
+        <div class="lang-pill-container">
+          <div class="lang-scroll-area">
+            <div class="lang-group">
+              <span class="lang-group-label">FROM</span>
+              <div class="lang-source-pills" id="source-lang-pills">
+                <button class="src-pill is-active" data-code="en" onclick="setSourceLang('en')">English</button>
+                <button class="src-pill" data-code="ar" onclick="setSourceLang('ar')">Arabic</button>
+                <button class="src-pill" data-code="es" onclick="setSourceLang('es')">Spanish</button>
+              </div>
+            </div>
+            <div class="lang-arrow"><i data-lucide="arrow-right" style="width:16px;height:16px;color:var(--gold-400);"></i></div>
+            <div class="lang-group">
+              <span class="lang-group-label">TO</span>
+              <div class="lang-target-pills" id="target-lang-pills">
+                <button class="tgt-pill is-active" data-code="ar" onclick="toggleTargetLang('ar')">Arabic</button>
+                <button class="tgt-pill" data-code="en" onclick="toggleTargetLang('en')">English</button>
+                <button class="tgt-pill" data-code="es" onclick="toggleTargetLang('es')">Spanish</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="page-body">
+        <div class="translate-container">
+          <div class="translate-panels" id="translate-panels">
+            <div class="translate-panel source-panel">
+              <div class="panel-header">
+                <span class="panel-label">Source</span>
+                <button class="btn btn-ghost btn-sm" id="clear-source" title="Clear" style="opacity:0;transition:opacity .2s;">
+                  <i data-lucide="x" style="width:13px;height:13px;"></i>
+                </button>
+              </div>
+              <div class="source-input-wrap">
+                <div class="source-highlights" id="source-highlights"></div>
+                <textarea class="translate-input" id="source-text" placeholder="Type or paste text here..." autofocus autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
+                <div class="ghost-overlay" id="ghost-overlay"></div>
+                <div class="ac-dropdown" id="ac-dropdown" style="display:none;"></div>
+                <div id="recording-indicator" style="display:none;position:absolute;top:8px;right:8px;background:rgba(239,68,68,0.9);color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:500;animation:pulse 1s infinite;">
+                  <span style="display:inline-block;width:6px;height:6px;background:#fff;border-radius:50%;margin-right:6px;"></span>Recording...
+                </div>
+              </div>
+              <div class="panel-footer">
+                <span class="char-count" id="source-count">0</span>
+                <span class="auto-save-dot" id="auto-save-indicator" title="Auto-saved"></span>
+                <div style="display:flex;gap:2px;margin-left:auto;">
+                  <button class="btn btn-ghost btn-sm" id="text-decrease" title="Decrease text size" style="padding:2px 6px;font-size:10px;">A-</button>
+                  <button class="btn btn-ghost btn-sm" id="text-increase" title="Increase text size" style="padding:2px 6px;font-size:12px;">A+</button>
+                  <button class="btn btn-ghost btn-sm" id="voice-btn" title="Voice input"><i data-lucide="mic" style="width:14px;height:14px;"></i></button>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="new-conversation-btn" title="Start new conversation" style="font-size:11px;padding:3px 10px;">
+                  <i data-lucide="plus" style="width:12px;height:12px;"></i> New
+                </button>
+              </div>
+            </div>
+            <div class="translate-targets" id="translate-targets"></div>
+          </div>
+
+          <!-- Glossary Detection Bar -->
+          <div class="gloss-bar" id="gloss-bar" style="display:none;">
+            <div class="gloss-bar-left">
+              <label class="gloss-switch" id="gloss-master">
+                <input type="checkbox" id="gloss-master-cb" checked>
+                <span class="gloss-slider"></span>
+              </label>
+              <span class="gloss-bar-label">Glossary</span>
+              <span class="gloss-bar-count" id="gloss-bar-count">0</span>
+            </div>
+            <div class="gloss-chips" id="gloss-chips"></div>
+          </div>
+
+          <!-- Terms Drawer -->
+          <div class="terms-drawer" id="terms-drawer" style="display:none;">
+            <div class="drawer-header" id="drawer-header">
+              <div style="display:flex;align-items:center;gap:var(--space-sm);">
+                <i data-lucide="book-open" style="width:14px;height:14px;color:var(--gold-400);"></i>
+                <span class="drawer-title" id="drawer-title">Terms</span>
+                <span class="badge badge-gold" id="drawer-count">0</span>
+              </div>
+              <div style="display:flex;gap:4px;">
+                <button class="btn btn-primary btn-sm" id="add-term-drawer-btn" style="font-size:11px;padding:3px 10px;">
+                  <i data-lucide="plus" style="width:11px;height:11px;"></i> Add
+                </button>
+                <button class="btn btn-ghost btn-sm btn-icon" id="toggle-drawer">
+                  <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+                </button>
+              </div>
+            </div>
+            <div class="drawer-body" id="drawer-body">
+              <table class="data-table" id="terms-table">
+                <thead>
+                  <tr>
+                    <th>English</th>
+                    <th>Arabic</th>
+                    <th>Spanish</th>
+                    <th>Notes</th>
+                    <th style="width:70px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="terms-tbody"></tbody>
+              </table>
+              <div id="terms-empty" style="display:none;padding:var(--space-md);text-align:center;color:var(--text-muted);font-size:var(--text-sm);">No terms yet.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Add/Edit Term Modal -->
+  <div class="modal-backdrop" id="term-modal-backdrop" onclick="Modal.close('term-modal')"></div>
+  <div class="modal" id="term-modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h3 id="term-modal-title">Add Term</h3>
+      <button class="modal-close" onclick="Modal.close('term-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-term-id">
+      <p style="font-size:11px;color:var(--text-muted);margin:0 0 var(--space-md);line-height:1.5;">Enter the same word/phrase in at least 2 languages. All directions are automatic.</p>
+      <div style="display:flex;gap:var(--space-md);align-items:flex-start;">
+        <div style="flex:1;">
+          <div class="term-lang-flag" style="width:100%;margin-bottom:4px;">EN</div>
+          <input type="text" class="form-input" id="modal-term-en" placeholder="English term">
+        </div>
+        <div style="flex:1;">
+          <div class="term-lang-flag" style="width:100%;margin-bottom:4px;background:rgba(34,139,34,0.15);color:#4ade80;">AR</div>
+          <input type="text" class="form-input" id="modal-term-ar" placeholder="المصطلح بالعربية" dir="rtl">
+        </div>
+        <div style="flex:1;">
+          <div class="term-lang-flag" style="width:100%;margin-bottom:4px;background:rgba(59,130,246,0.15);color:#60a5fa;">ES</div>
+          <input type="text" class="form-input" id="modal-term-es" placeholder="Término en español">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Modal.close('term-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTermFromModal()">Save Term</button>
+    </div>
+  </div>
+
+  <script src="/js/app.js?v=2"></script>
+  <script>
+    lucide.createIcons();
+    
+    // Translation state
+    var translateTimer = null;
+    var useGlossary = true;
+    var currentSourceLang = 'en';
+    var activeTargets = ['ar'];
+    var DEBOUNCE = 600;
+    var lastTranslations = {};
+    var chipStates = {};
+    var currentSessionId = null;
+    var autoSaveTimer = null;
+    var currentTerms = [];
+    var allTermObjects = [];
+    var acDropdown = document.getElementById('ac-dropdown');
+    var acActiveIdx = -1;
+    var acMatches = [];
+
+    var srcText = document.getElementById('source-text');
+    var catSelect = document.getElementById('category-select');
+    var targetsEl = document.getElementById('translate-targets');
+    var drawerEl = document.getElementById('terms-drawer');
+    var clearBtn = document.getElementById('clear-source');
+    var glossBar = document.getElementById('gloss-bar');
+    var glossChipsEl = document.getElementById('gloss-chips');
+    var glossMasterCb = document.getElementById('gloss-master-cb');
+    var autoSaveDot = document.getElementById('auto-save-indicator');
+    var sourceHighlights = document.getElementById('source-highlights');
+    var ghostOverlay = document.getElementById('ghost-overlay');
+    var currentGhostSuggestion = '';
+    var textSize = 16;
+
+    // Text size controls - applies to source and all target outputs
+    function applyTextSize() {
+      srcText.style.fontSize = textSize + 'px';
+      document.querySelectorAll('.translate-output').forEach(function(el) {
+        el.style.fontSize = textSize + 'px';
+      });
+    }
+    
+    document.getElementById('text-increase').addEventListener('click', function() {
+      if (textSize < 32) { textSize += 2; applyTextSize(); }
+    });
+    document.getElementById('text-decrease').addEventListener('click', function() {
+      if (textSize > 10) { textSize -= 2; applyTextSize(); }
+    });
+
+    // Voice input using MediaRecorder + backend Whisper API
+    var mediaRecorder = null;
+    var audioChunks = [];
+    var isRecording = false;
+    var voiceBtn = document.getElementById('voice-btn');
+    var recordingIndicator = document.getElementById('recording-indicator');
+    
+    if (voiceBtn && navigator.mediaDevices) {
+      voiceBtn.addEventListener('click', async function() {
+        if (!isRecording) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            audioChunks = [];
+            
+            mediaRecorder.ondataavailable = function(e) { audioChunks.push(e.data); };
+            
+            mediaRecorder.onstop = async function() {
+              stream.getTracks().forEach(t => t.stop());
+              recordingIndicator.style.display = 'none';
+              voiceBtn.style.color = '';
+              const blob = new Blob(audioChunks, { type: 'audio/webm' });
+              
+              // Convert to base64
+              const reader = new FileReader();
+              reader.onload = async function() {
+                const base64 = reader.result.split(',')[1];
+                const lang = currentSourceLang === 'ar' ? 'ar' : currentSourceLang === 'es' ? 'es' : 'en';
+                
+                Toast.success('Processing voice...');
+                
+                try {
+                  const res = await fetch('/api/speech-to-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ audio: base64, lang: lang })
+                  });
+                  const data = await res.json();
+                  
+                  if (data.success && data.text) {
+                    srcText.value += (srcText.value ? ' ' : '') + data.text;
+                    srcText.dispatchEvent(new Event('input'));
+                    Toast.success('Voice captured!');
+                  } else {
+                    Toast.error(data.error || 'Speech recognition failed');
+                  }
+                } catch (err) {
+                  Toast.error('Speech API error');
+                }
+              };
+              reader.readAsDataURL(blob);
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+            voiceBtn.style.color = '#ef4444';
+            recordingIndicator.style.display = 'block';
+            Toast.success('Recording... Click to stop');
+            
+            // Auto-stop after 30 seconds
+            setTimeout(function() {
+              if (isRecording && mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                isRecording = false;
+                recordingIndicator.style.display = 'none';
+                voiceBtn.style.color = '';
+              }
+            }, 30000);
+            
+          } catch (err) {
+            Toast.error('Microphone access denied');
+          }
+        } else {
+          if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+          }
+          isRecording = false;
+          recordingIndicator.style.display = 'none';
+          voiceBtn.style.color = '';
+        }
+      });
+    } else if (voiceBtn) {
+      voiceBtn.style.opacity = '0.5';
+      voiceBtn.title = 'Voice not supported';
+    }
+
+    function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    function esc(s) { return escapeHtml(s); }
+    function enc(s) { return encodeURIComponent(s); }
+
+    function setSourceLang(code) {
+      currentSourceLang = code;
+      document.querySelectorAll('.src-pill').forEach(function(p) { p.classList.toggle('is-active', p.dataset.code === code); });
+      activeTargets = activeTargets.filter(function(t) { return t !== code; });
+      syncTargetPills(); buildTargetPanels();
+      if (srcText.value.trim()) doTranslate();
+    }
+
+    function toggleTargetLang(code) {
+      if (code === currentSourceLang) return;
+      activeTargets = [code];
+      syncTargetPills(); buildTargetPanels();
+      var cachedSegs = [];
+      for (var k in lastTranslations) { if (lastTranslations[k].segments) { cachedSegs = lastTranslations[k].segments; break; } }
+      if (cachedSegs.length) renderChips(cachedSegs);
+      if (srcText.value.trim()) doTranslate();
+    }
+
+    function syncTargetPills() {
+      document.querySelectorAll('.tgt-pill').forEach(function(p) {
+        p.classList.toggle('is-hidden', p.dataset.code === currentSourceLang);
+        p.classList.toggle('is-active', activeTargets.indexOf(p.dataset.code) > -1);
+      });
+    }
+
+    function buildTargetPanels() {
+      var rtlLangs = ['ar'];
+      targetsEl.innerHTML = activeTargets.map(function(code) {
+        var pill = document.querySelector('.tgt-pill[data-code="' + code + '"]');
+        var name = pill ? pill.textContent : code;
+        var isRtl = rtlLangs.indexOf(code) > -1;
+        return '<div class="translate-panel target-panel" data-lang="' + code + '">'
+          + '<div class="panel-header"><span class="panel-label">' + name + '</span>'
+          + '<button class="btn btn-ghost btn-sm" onclick="copyPanel(\'' + code + '\')" title="Copy"><i data-lucide="copy"></i></button></div>'
+          + '<div class="translate-output" id="output-' + code + '" style="font-size:' + textSize + 'px;"' + (isRtl ? ' data-dir="rtl"' : '') + '><span class="placeholder-text">Translation...</span></div>'
+          + '<div class="panel-footer"><span class="char-count" id="count-' + code + '">0</span>'
+          + '<div class="spinner spinner-sm" id="loading-' + code + '" style="display:none;"></div></div></div>';
+      }).join('');
+      lucide.createIcons();
+    }
+
+    function copyPanel(code) {
+      var el = document.getElementById('output-' + code);
+      if (el) { navigator.clipboard.writeText(el.textContent); Toast.success('Copied!'); }
+    }
+
+    srcText.addEventListener('input', function() {
+      document.getElementById('source-count').textContent = srcText.value.length;
+      clearBtn.style.opacity = srcText.value ? '1' : '0';
+      updateSourceHighlights();
+      if (typeof updateGhostText === 'function') updateGhostText();
+      clearTimeout(translateTimer);
+      if (!srcText.value.trim()) {
+        document.querySelectorAll('.translate-output').forEach(function(el) { el.innerHTML = '<span class="placeholder-text">Translation...</span>'; });
+        lastTranslations = {}; chipStates = {}; renderChips([]);
+        sourceHighlights.innerHTML = '';
+        ghostOverlay.innerHTML = ''; currentGhostSuggestion = '';
+        return;
+      }
+      translateTimer = setTimeout(doTranslate, DEBOUNCE);
+    });
+
+    srcText.addEventListener('scroll', function() {
+      sourceHighlights.scrollTop = srcText.scrollTop;
+      sourceHighlights.scrollLeft = srcText.scrollLeft;
+      ghostOverlay.scrollTop = srcText.scrollTop;
+      ghostOverlay.scrollLeft = srcText.scrollLeft;
+    });
+
+    function doTranslate() {
+      var text = srcText.value;
+      if (!text.trim() || !activeTargets.length) return;
+      activeTargets.forEach(function(c) {
+        var ld = document.getElementById('loading-' + c); if (ld) ld.style.display = 'inline-block';
+        var out = document.getElementById('output-' + c); if (out) out.style.opacity = '0.5';
+      });
+
+      var disabledTerms = [];
+      for (var tid in chipStates) {
+        if (chipStates[tid] === false) disabledTerms.push(tid);
+      }
+
+      api('/api/translate', {
+        method: 'POST',
+        body: JSON.stringify({
+          text: text,
+          source_lang: currentSourceLang,
+          target_langs: activeTargets,
+          category_id: catSelect.value || null,
+          use_glossary: useGlossary,
+          disabled_terms: disabledTerms
+        })
+      }).then(function(res) {
+        lastTranslations = res.translations || {};
+        var allSegs = [], seenIds = {};
+        for (var code in lastTranslations) {
+          var segs = lastTranslations[code].segments || [];
+          for (var i = 0; i < segs.length; i++) {
+            if (segs[i].is_glossary && !seenIds[segs[i].term_id]) {
+              seenIds[segs[i].term_id] = true;
+              allSegs.push(segs[i]);
+              if (!(segs[i].term_id in chipStates)) chipStates[segs[i].term_id] = true;
+            }
+          }
+        }
+        renderChips(allSegs);
+        rerenderAllOutputs();
+        autoSave();
+      }).catch(function(e) { Toast.error(e.message || 'Translation failed.'); })
+        .finally(function() {
+          activeTargets.forEach(function(c) {
+            var ld = document.getElementById('loading-' + c); if (ld) ld.style.display = 'none';
+            var out = document.getElementById('output-' + c); if (out) out.style.opacity = '1';
+          });
+        });
+    }
+
+    function rerenderAllOutputs() {
+      if (!lastTranslations) return;
+      for (var code in lastTranslations) {
+        if (code === 'undefined' || !code) continue;
+        var data = lastTranslations[code];
+        var out = document.getElementById('output-' + code);
+        if (!out || !data) continue;
+        var html = escapeHtml(data.full_translation || '');
+        if (data.segments && useGlossary) {
+          for (var i = 0; i < data.segments.length; i++) {
+            var seg = data.segments[i];
+            if (seg && seg.is_glossary && chipStates[seg.term_id] !== false) {
+              var termForLang = seg['term_' + code] || seg.translation || '';
+              if (termForLang) {
+                var escaped = escapeHtml(termForLang);
+                var re = new RegExp('(' + escapeRegex(escaped) + ')', 'gi');
+                html = html.replace(re, '<span class="glossary-word" title="Glossary: ' + escapeHtml(seg.source) + '">$1</span>');
+              }
+            }
+          }
+        }
+        html = html.replace(/\n/g, '<br>');
+        out.innerHTML = html;
+        var cnt = document.getElementById('count-' + code);
+        if (cnt) cnt.textContent = (data.full_translation || '').length;
+      }
+      lucide.createIcons();
+    }
+
+    function renderChips(segments) {
+      var hasCategory = !!catSelect.value;
+      glossBar.style.display = hasCategory ? 'flex' : 'none';
+      document.getElementById('gloss-bar-count').textContent = segments.length;
+      if (!segments.length) {
+        glossChipsEl.innerHTML = hasCategory ? '<span style="font-size:11px;color:var(--text-muted);font-style:italic;">Type to detect terms</span>' : '';
+        return;
+      }
+      var chipLangs = [currentSourceLang].concat(activeTargets.filter(function(c) { return c !== currentSourceLang; }));
+      glossChipsEl.innerHTML = segments.map(function(seg) {
+        var isOn = chipStates[seg.term_id] !== false;
+        var parts = [];
+        for (var i = 0; i < chipLangs.length; i++) {
+          var code = chipLangs[i];
+          var val = seg['term_' + code];
+          if (val) parts.push('<b>' + code.toUpperCase() + '</b> ' + escapeHtml(val));
+        }
+        var label = parts.join(' · ');
+        return '<span class="g-chip' + (isOn ? '' : ' is-off') + '" data-tid="' + seg.term_id + '" onclick="toggleChip(\'' + seg.term_id + '\',this)">'
+          + '<span class="g-chip-dot"></span>' + label + '</span>';
+      }).join('');
+    }
+
+    function toggleChip(termId, el) {
+      var tid = String(termId);
+      chipStates[tid] = (chipStates[tid] === false);
+      el.classList.toggle('is-off', !chipStates[tid]);
+      doTranslate();
+    }
+
+    glossMasterCb.addEventListener('change', function() {
+      useGlossary = glossMasterCb.checked;
+      glossBar.classList.toggle('is-off', !useGlossary);
+      updateSourceHighlights();
+      if (srcText.value.trim()) doTranslate();
+    });
+
+    // Custom Select
+    var customSelectWrap = document.getElementById('glossary-custom-select');
+    var customSelectTrigger = customSelectWrap.querySelector('.custom-select-trigger');
+    var customSelectLabel = document.getElementById('custom-select-label');
+    var customOptions = customSelectWrap.querySelectorAll('.custom-option');
+
+    customSelectTrigger.addEventListener('click', function(e) {
+      e.stopPropagation();
+      customSelectWrap.classList.toggle('is-open');
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!customSelectWrap.contains(e.target)) customSelectWrap.classList.remove('is-open');
+    });
+
+    customOptions.forEach(function(opt) {
+      opt.addEventListener('click', function() {
+        var val = this.getAttribute('data-value');
+        var text = this.textContent;
+        customOptions.forEach(function(o) { o.classList.remove('is-selected'); });
+        this.classList.add('is-selected');
+        customSelectLabel.textContent = text;
+        catSelect.value = val;
+        customSelectWrap.classList.remove('is-open');
+        catSelect.dispatchEvent(new Event('change'));
+      });
+    });
+
+    catSelect.addEventListener('change', function() {
+      var has = !!catSelect.value;
+      glossBar.style.display = has ? 'flex' : 'none';
+      drawerEl.style.display = has ? 'flex' : 'none';
+      chipStates = {};
+      if (has) {
+        loadDrawerTerms(catSelect.value);
+        document.getElementById('drawer-title').textContent = customSelectLabel.textContent;
+      } else {
+        currentTerms = [];
+        sourceHighlights.innerHTML = '';
+      }
+      if (srcText.value.trim()) doTranslate();
+    });
+
+    clearBtn.addEventListener('click', function() {
+      srcText.value = ''; srcText.focus();
+      document.querySelectorAll('.translate-output').forEach(function(el) { el.innerHTML = '<span class="placeholder-text">Translation...</span>'; });
+      document.getElementById('source-count').textContent = '0';
+      clearBtn.style.opacity = '0';
+      lastTranslations = {}; chipStates = {}; renderChips([]);
+      sourceHighlights.innerHTML = '';
+    });
+
+    function autoSave() {
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(function() {
+        var text = srcText.value.trim();
+        if (!text) return;
+        var translations = {};
+        for (var code in lastTranslations) { var t = lastTranslations[code].full_translation; if (t) translations[code] = t; }
+        if (!Object.keys(translations).length) return;
+        var payload = { source_text: text, source_lang: currentSourceLang, translations: translations, category_id: catSelect.value || null };
+        if (currentSessionId) payload.session_id = currentSessionId;
+        api('/api/save-session', { method: 'POST', body: JSON.stringify(payload) })
+          .then(function(res) {
+            if (res.session_id) currentSessionId = res.session_id;
+            autoSaveDot.style.display = 'inline-block';
+            setTimeout(function() { autoSaveDot.style.display = 'none'; }, 2000);
+          }).catch(function() { });
+      }, 1500);
+    }
+
+    document.getElementById('new-conversation-btn').addEventListener('click', function() {
+      currentSessionId = null;
+      srcText.value = ''; srcText.focus();
+      document.querySelectorAll('.translate-output').forEach(function(el) { el.innerHTML = '<span class="placeholder-text">Translation...</span>'; });
+      document.getElementById('source-count').textContent = '0';
+      clearBtn.style.opacity = '0';
+      lastTranslations = {}; chipStates = {}; renderChips([]);
+      Toast.info('New conversation started.');
+    });
+
+    function updateSourceHighlights() {
+      var text = srcText.value;
+      if (!text || !currentTerms.length || !useGlossary) { sourceHighlights.innerHTML = ''; return; }
+      var html = escapeHtml(text);
+      var sorted = currentTerms.slice().sort(function(a, b) { return b.length - a.length; });
+      for (var i = 0; i < sorted.length; i++) {
+        var re = new RegExp('(' + escapeRegex(escapeHtml(sorted[i])) + ')', 'gi');
+        html = html.replace(re, '<mark>$1</mark>');
+      }
+      sourceHighlights.innerHTML = html + '\n';
+    }
+
+    function loadDrawerTerms(catId) {
+      api('/api/category-terms?category_id=' + catId).then(function(res) {
+        var tbody = document.getElementById('terms-tbody');
+        var terms = res.terms || [];
+        document.getElementById('drawer-count').textContent = terms.length;
+        currentTerms = [];
+        allTermObjects = terms;
+        var srcLang = 'term_' + currentSourceLang;
+        for (var i = 0; i < terms.length; i++) {
+          if (terms[i][srcLang]) currentTerms.push(terms[i][srcLang]);
+        }
+        updateSourceHighlights();
+        if (!terms.length) { document.getElementById('terms-table').style.display = 'none'; document.getElementById('terms-empty').style.display = 'block'; return; }
+        document.getElementById('terms-table').style.display = 'table';
+        document.getElementById('terms-empty').style.display = 'none';
+        tbody.innerHTML = terms.map(function(t) {
+          return '<tr data-id="' + t.id + '"><td>' + esc(t.term_en || '\u2014') + '</td>'
+            + '<td>' + esc(t.term_ar || '\u2014') + '</td>'
+            + '<td>' + esc(t.term_es || '\u2014') + '</td>'
+            + '<td class="text-muted" style="font-size:11px;">' + esc(t.notes || '\u2014') + '</td>'
+            + '<td style="text-align:right;white-space:nowrap;">'
+            + '<button class="btn btn-ghost btn-sm btn-icon" onclick="editTerm(' + t.id + ',\'' + enc(t.term_en || '') + '\',\'' + enc(t.term_ar || '') + '\',\'' + enc(t.term_es || '') + '\',\'' + enc(t.notes || '') + '\')"><i data-lucide="pencil"></i></button>'
+            + '<button class="btn btn-danger btn-sm btn-icon" onclick="deleteTerm(' + t.id + ',this)"><i data-lucide="trash-2"></i></button></td></tr>';
+        }).join('');
+        lucide.createIcons();
+      }).catch(function() { Toast.error('Failed to load terms.'); });
+    }
+
+    document.getElementById('add-term-drawer-btn').addEventListener('click', function() {
+      document.getElementById('term-modal-title').textContent = 'Add Term';
+      document.getElementById('edit-term-id').value = '';
+      document.getElementById('modal-term-en').value = '';
+      document.getElementById('modal-term-ar').value = '';
+      document.getElementById('modal-term-es').value = '';
+      document.getElementById('modal-term-notes').value = '';
+      Modal.open('term-modal');
+    });
+
+    function saveTermFromModal() {
+      var en = document.getElementById('modal-term-en').value.trim();
+      var ar = document.getElementById('modal-term-ar').value.trim();
+      var es = document.getElementById('modal-term-es').value.trim();
+      var notes = document.getElementById('modal-term-notes').value.trim();
+      var editId = document.getElementById('edit-term-id').value;
+      if ([en, ar, es].filter(Boolean).length < 2) { Toast.warning('Fill at least 2 languages.'); return; }
+      var url = editId ? '/glossary/term/' + editId + '/' : '/api/save-term';
+      var method = editId ? 'PUT' : 'POST';
+      var payload = { term_en: en, term_ar: ar, term_es: es, notes: notes };
+      if (!editId) payload.category_id = catSelect.value;
+      api(url, { method: method, body: JSON.stringify(payload) }).then(function() {
+        Modal.close('term-modal'); loadDrawerTerms(catSelect.value);
+        if (srcText.value.trim()) doTranslate();
+        Toast.success(editId ? 'Updated.' : 'Added.');
+      }).catch(function(e) { Toast.error(e.message || 'Failed.'); });
+    }
+
+    function editTerm(id, en, ar, es, notes) {
+      document.getElementById('term-modal-title').textContent = 'Edit Term';
+      document.getElementById('edit-term-id').value = id;
+      document.getElementById('modal-term-en').value = decodeURIComponent(en);
+      document.getElementById('modal-term-ar').value = decodeURIComponent(ar);
+      document.getElementById('modal-term-es').value = decodeURIComponent(es);
+      document.getElementById('modal-term-notes').value = decodeURIComponent(notes);
+      Modal.open('term-modal');
+    }
+
+    function deleteTerm(id, btn) {
+      ConfirmDelete.show('Delete Term', 'Delete this glossary term?', function() {
+        api('/glossary/term/' + id + '/', { method: 'DELETE' }).then(function() {
+          btn.closest('tr').remove();
+          if (srcText.value.trim()) doTranslate();
+          Toast.success('Deleted.');
+        }).catch(function() { Toast.error('Failed.'); });
+      });
+    }
+
+    document.getElementById('toggle-drawer').addEventListener('click', function(e) { e.stopPropagation(); document.getElementById('drawer-body').classList.toggle('is-collapsed'); });
+
+    // Ghost text autocomplete
+    var wordHistory = new Set();
+    var bigramMap = Object.create(null);
+
+    function collectWords(text) {
+      if (!text || typeof text !== 'string') return;
+      var words = text.split(/[\s\n]+/);
+      var prev = null;
+      for (var i = 0; i < words.length; i++) {
+        var raw = words[i];
+        if (!raw) continue;
+        var w = raw.replace(/[^\w\u0600-\u06FF\u00C0-\u024F'-]/g, '');
+        if (w && w.length >= 2) {
+          wordHistory.add(w);
+          if (prev) {
+            var key = prev.toLowerCase();
+            if (!bigramMap[key]) bigramMap[key] = Object.create(null);
+            var nk = w.toLowerCase();
+            bigramMap[key][nk] = (bigramMap[key][nk] || 0) + 1;
+          }
+          prev = w;
+        }
+      }
+    }
+
+    function updateGhostText() {
+      var text = srcText.value || '';
+      var pos = srcText.selectionStart;
+      collectWords(text);
+      if (pos === 0) { ghostOverlay.innerHTML = ''; return; }
+      var start = pos;
+      while (start > 0 && text[start - 1] && /\S/.test(text[start - 1])) start--;
+      var partial = text.substring(start, pos);
+      var prevEnd = start;
+      while (prevEnd > 0 && text[prevEnd - 1] && /\s/.test(text[prevEnd - 1])) prevEnd--;
+      var prevStart = prevEnd;
+      while (prevStart > 0 && text[prevStart - 1] && /\S/.test(text[prevStart - 1])) prevStart--;
+      var prevWord = text.substring(prevStart, prevEnd);
+      var atWordStart = pos > 0 && text[pos - 1] === ' ';
+      var match = findGhostCompletion(atWordStart ? '' : partial, prevWord);
+      if (match && match.toLowerCase().indexOf((partial || '').toLowerCase()) === 0 && match.length > (partial || '').length) {
+        var remainder = match.substring((partial || '').length);
+        currentGhostSuggestion = remainder;
+        var before = escapeHtml(text.substring(0, pos));
+        ghostOverlay.innerHTML = before + '<span class="ghost-hint">' + escapeHtml(remainder) + '</span>';
+      } else {
+        currentGhostSuggestion = '';
+        ghostOverlay.innerHTML = '';
+      }
+    }
+
+    function findGhostCompletion(partial, prevWord) {
+      if (!partial || partial.length < 1) return '';
+      var lower = partial.toLowerCase();
+      var bestMatch = '';
+      var bestLen = Infinity;
+      var srcField = 'term_' + currentSourceLang;
+      for (var i = 0; i < allTermObjects.length; i++) {
+        var val = allTermObjects[i][srcField] || '';
+        if (val.toLowerCase().indexOf(lower) === 0 && val.length > partial.length && val.length < bestLen) {
+          bestMatch = val;
+          bestLen = val.length;
+        }
+      }
+      if (bestMatch) return bestMatch;
+      wordHistory.forEach(function(w) {
+        if (w.toLowerCase().indexOf(lower) === 0 && w.length > partial.length && w.length < bestLen) {
+          bestMatch = w;
+          bestLen = w.length;
+        }
+      });
+      return bestMatch;
+    }
+
+    // Glossary autocomplete dropdown
+    function getWordAtCursor() {
+      var pos = srcText.selectionStart;
+      var text = srcText.value;
+      if (!text || pos === 0) return { word: '', start: 0, end: 0 };
+      var start = pos;
+      while (start > 0 && /\S/.test(text[start - 1])) start--;
+      var end = pos;
+      return { word: text.substring(start, end), start: start, end: end };
+    }
+
+    function showAcDropdown(matches, wordInfo) {
+      if (!matches.length) { acDropdown.style.display = 'none'; acMatches = []; acActiveIdx = -1; return; }
+      acMatches = matches;
+      acActiveIdx = 0;
+      var srcField = 'term_' + currentSourceLang;
+      var chipLangs = [currentSourceLang].concat(activeTargets.filter(function(c) { return c !== currentSourceLang; }));
+      acDropdown.innerHTML = matches.map(function(t, idx) {
+        var termLabel = escapeHtml(t[srcField] || t.term_en || '');
+        var langParts = [];
+        for (var i = 0; i < chipLangs.length; i++) {
+          var code = chipLangs[i];
+          var val = t['term_' + code];
+          if (val) langParts.push('<span class="ac-lang"><b>' + code.toUpperCase() + '</b> ' + escapeHtml(val) + '</span>');
+        }
+        return '<div class="ac-row' + (idx === 0 ? ' is-active' : '') + '" data-idx="' + idx + '" onmousedown="acSelect(' + idx + ')">'
+          + '<span class="ac-term">' + termLabel + '</span>'
+          + '<span class="ac-langs">' + langParts.join('') + '</span>'
+          + '<span class="ac-hint">Tab \u21b5</span></div>';
+      }).join('');
+      acDropdown.style.display = 'block';
+    }
+
+    function acSelect(idx) {
+      var match = acMatches[idx];
+      if (!match) return;
+      var wordInfo = getWordAtCursor();
+      var srcField = 'term_' + currentSourceLang;
+      var replacement = match[srcField] || match.term_en || '';
+      if (!replacement) return;
+      var before = srcText.value.substring(0, wordInfo.start);
+      var after = srcText.value.substring(wordInfo.end);
+      var needsSpace = after.length > 0 && after[0] !== ' ' ? ' ' : '';
+      srcText.value = before + replacement + needsSpace + after;
+      var newPos = wordInfo.start + replacement.length + needsSpace.length;
+      srcText.setSelectionRange(newPos, newPos);
+      srcText.focus();
+      acDropdown.style.display = 'none';
+      acMatches = [];
+      acActiveIdx = -1;
+      srcText.dispatchEvent(new Event('input'));
+    }
+
+    srcText.addEventListener('keydown', function(e) {
+      if (e.key === 'Tab' && currentGhostSuggestion && acDropdown.style.display === 'none') {
+        e.preventDefault();
+        var pos = srcText.selectionStart;
+        var before = srcText.value.substring(0, pos);
+        var after = srcText.value.substring(pos);
+        srcText.value = before + currentGhostSuggestion + after;
+        var newPos = pos + currentGhostSuggestion.length;
+        srcText.setSelectionRange(newPos, newPos);
+        currentGhostSuggestion = '';
+        ghostOverlay.innerHTML = '';
+        srcText.dispatchEvent(new Event('input'));
+        return;
+      }
+      if (acDropdown.style.display === 'none' || !acMatches.length) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        acActiveIdx = (acActiveIdx + 1) % acMatches.length;
+        updateAcHighlight();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        acActiveIdx = (acActiveIdx - 1 + acMatches.length) % acMatches.length;
+        updateAcHighlight();
+      } else if (e.key === 'Tab' || e.key === 'Enter') {
+        if (acMatches.length > 0 && acActiveIdx >= 0) {
+          e.preventDefault();
+          acSelect(acActiveIdx);
+        }
+      } else if (e.key === 'Escape') {
+        acDropdown.style.display = 'none';
+        acMatches = [];
+        acActiveIdx = -1;
+      }
+    });
+
+    function updateAcHighlight() {
+      var rows = acDropdown.querySelectorAll('.ac-row');
+      for (var i = 0; i < rows.length; i++) {
+        rows[i].classList.toggle('is-active', i === acActiveIdx);
+      }
+      if (rows[acActiveIdx]) rows[acActiveIdx].scrollIntoView({ block: 'nearest' });
+    }
+
+    // Input listener for autocomplete
+    srcText.addEventListener('input', function() {
+      if (!allTermObjects.length || !useGlossary || !catSelect.value) {
+        acDropdown.style.display = 'none';
+        return;
+      }
+      var wordInfo = getWordAtCursor();
+      var typed = wordInfo.word.toLowerCase();
+      if (!typed || typed.length < 1) { acDropdown.style.display = 'none'; return; }
+      var srcField = 'term_' + currentSourceLang;
+      var matches = [];
+      for (var i = 0; i < allTermObjects.length; i++) {
+        var t = allTermObjects[i];
+        var fields = ['term_en', 'term_ar', 'term_es'];
+        var matched = false;
+        for (var f = 0; f < fields.length; f++) {
+          var val = (t[fields[f]] || '').toLowerCase();
+          if (val && val.indexOf(typed) === 0 && val !== typed) { matched = true; break; }
+        }
+        var srcVal = (t[srcField] || '').toLowerCase();
+        if (!matched && srcVal && srcVal.indexOf(typed) > -1 && srcVal !== typed) matched = true;
+        if (matched) matches.push(t);
+        if (matches.length >= 8) break;
+      }
+      showAcDropdown(matches, wordInfo);
+    });
+
+    document.addEventListener('mousedown', function(e) {
+      if (!e.target.closest('.source-input-wrap')) acDropdown.style.display = 'none';
+    });
+
+    // Initialize
+    syncTargetPills(); buildTargetPanels();
+    var stored = sessionStorage.getItem('loadSession');
+    if (stored) {
+      sessionStorage.removeItem('loadSession');
+      try {
+        var sess = JSON.parse(stored);
+        if (sess.source_lang) setSourceLang(sess.source_lang);
+        if (sess.translations) { activeTargets = Object.keys(sess.translations).filter(function(c) { return c !== currentSourceLang; }); syncTargetPills(); buildTargetPanels(); }
+        if (sess.category_id) { catSelect.value = sess.category_id; catSelect.dispatchEvent(new Event('change')); }
+        if (sess.source_text) { srcText.value = sess.source_text; srcText.dispatchEvent(new Event('input')); }
+      } catch (e) { }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<aside class="app-sidebar" id="sidebar" role="navigation">
+    <div class="app-sidebar__accent"></div>
+
+    <nav class="app-sidebar__nav">
+        <div class="app-sidebar__group">
+            <div class="app-sidebar__group-label">Main</div>
+            <a href="/" class="app-sidebar__link <%= typeof activeTab !== 'undefined' && activeTab === 'translate' ? 'is-active' : '' %>">
+                <span class="app-sidebar__icon-wrap">
+                    <i data-lucide="languages" class="app-sidebar__icon" aria-hidden="true"></i>
+                </span>
+                <span class="app-sidebar__text">Translate</span>
+            </a>
+            <a href="/projects" class="app-sidebar__link <%= typeof activeTab !== 'undefined' && (activeTab === 'history' || activeTab === 'project') ? 'is-active' : '' %>">
+                <span class="app-sidebar__icon-wrap">
+                    <i data-lucide="history" class="app-sidebar__icon" aria-hidden="true"></i>
+                </span>
+                <span class="app-sidebar__text">History</span>
+            </a>
+        </div>
+
+        <div class="app-sidebar__group">
+            <div class="app-sidebar__group-label">Tools</div>
+            <a href="/glossary" class="app-sidebar__link <%= typeof activeTab !== 'undefined' && activeTab === 'glossary' ? 'is-active' : '' %>">
+                <span class="app-sidebar__icon-wrap">
+                    <i data-lucide="book-open" class="app-sidebar__icon" aria-hidden="true"></i>
+                </span>
+                <span class="app-sidebar__text">Glossary</span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="app-sidebar__footer">
+        <span class="app-sidebar__version">v2.0</span>
+    </div>
+</aside>

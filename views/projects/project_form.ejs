@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= project ? 'Edit Project' : 'New Project' %> — Translator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+</head>
+<body>
+  <%- include('../partials/sidebar.ejs', { activeTab: 'projects' }) %>
+  
+  <main class="main-content">
+    <div class="address-bar">
+      <div class="address-bar-item">
+        <i data-lucide="home" style="width:12px;height:12px;"></i>
+        <span>Main</span>
+      </div>
+      <span class="address-bar-sep">/</span>
+      <div class="address-bar-item">
+        <a href="/projects">Projects</a>
+      </div>
+      <span class="address-bar-sep">/</span>
+      <div class="address-bar-item">
+        <span><%= project ? 'Edit' : 'New' %></span>
+      </div>
+    </div>
+    
+    <header class="page-header">
+      <div class="page-header-left">
+        <h1 class="page-title"><%= project ? 'Edit Project' : 'New Project' %></h1>
+      </div>
+      <div class="page-header-right">
+        <a href="/projects" class="btn btn-ghost">
+          <i data-lucide="arrow-left"></i> Back
+        </a>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div class="card" style="max-width: 600px;">
+        <div class="card-body">
+          <form id="project-form">
+            <% if (project) { %>
+            <input type="hidden" id="project-id" value="<%= project._id %>">
+            <% } %>
+            
+            <div class="form-group">
+              <label class="form-label">Project Name</label>
+              <input type="text" class="form-input" id="name" value="<%= project ? project.name : '' %>" placeholder="e.g., Marketing Materials Q1">
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <textarea class="form-textarea" id="description" rows="3" placeholder="Brief description..."><%= project ? project.description || '' : '' %></textarea>
+            </div>
+            
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+              <div class="form-group">
+                <label class="form-label">Source Language</label>
+                <select class="form-select" id="sourceLanguage">
+                  <% (languages || []).forEach(function(lang) { %>
+                  <option value="<%= lang._id %>" <%= project && project.sourceLanguage?._id?.toString() === lang._id.toString() ? 'selected' : '' %>><%= lang.name %></option>
+                  <% }); %>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label">Target Language</label>
+                <select class="form-select" id="targetLanguage">
+                  <% (languages || []).forEach(function(lang) { %>
+                  <option value="<%= lang._id %>" <%= project && project.targetLanguage?._id?.toString() === lang._id.toString() ? 'selected' : '' %>><%= lang.name %></option>
+                  <% }); %>
+                </select>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Domain</label>
+              <select class="form-select" id="domain">
+                <option value="general" <%= !project || project.domain === 'general' ? 'selected' : '' %>>General</option>
+                <option value="legal" <%= project && project.domain === 'legal' ? 'selected' : '' %>>Legal</option>
+                <option value="medical" <%= project && project.domain === 'medical' ? 'selected' : '' %>>Medical</option>
+                <option value="technical" <%= project && project.domain === 'technical' ? 'selected' : '' %>>Technical</option>
+                <option value="marketing" <%= project && project.domain === 'marketing' ? 'selected' : '' %>>Marketing</option>
+                <option value="finance" <%= project && project.domain === 'finance' ? 'selected' : '' %>>Finance</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Price Per Word ($)</label>
+              <input type="number" class="form-input" id="pricePerWord" step="0.01" min="0" value="<%= project ? project.pricePerWord || 0 : 0 %>" placeholder="0.00">
+            </div>
+            
+            <div class="form-actions" style="display: flex; gap: var(--space-sm); margin-top: var(--space-lg);">
+              <a href="/projects" class="btn btn-ghost">Cancel</a>
+              <button type="submit" class="btn btn-primary">
+                <i data-lucide="save"></i> Save Project
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    lucide.createIcons();
+    
+    document.getElementById('project-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const projectId = document.getElementById('project-id')?.value;
+      const name = document.getElementById('name').value.trim();
+      const description = document.getElementById('description').value.trim();
+      const sourceLanguage = document.getElementById('sourceLanguage').value;
+      const targetLanguage = document.getElementById('targetLanguage').value;
+      const domain = document.getElementById('domain').value;
+      const pricePerWord = parseFloat(document.getElementById('pricePerWord').value) || 0;
+      
+      if (!name) {
+        Toast.warning('Project name is required.');
+        return;
+      }
+      
+      if (sourceLanguage === targetLanguage) {
+        Toast.warning('Source and target languages must differ.');
+        return;
+      }
+      
+      const payload = { name, description, sourceLanguage, targetLanguage, domain, pricePerWord };
+      
+      try {
+        let res;
+        if (projectId) {
+          res = await api('/projects/' + projectId, { method: 'PUT', body: JSON.stringify(payload) });
+        } else {
+          res = await api('/projects', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        
+        if (res.success) {
+          Toast.success(projectId ? 'Project updated.' : 'Project created.');
+          window.location.href = '/projects';
+        }
+      } catch (err) {
+        Toast.error(err.message || 'Failed to save project.');
+      }
+    });
+  </script>
+</body>
+</html>
