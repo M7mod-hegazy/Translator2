@@ -212,6 +212,13 @@ window.Modal = Modal;
 window.ConfirmDelete = ConfirmDelete;
 window.setUnsaved = setUnsaved;
 
+window.toggleMobileMenu = function() {
+  const sidebar = document.getElementById('sidebar');
+  const adminNav = document.getElementById('admin-nav');
+  if (sidebar) sidebar.classList.toggle('mobile-open');
+  if (adminNav) adminNav.classList.toggle('mobile-open');
+};
+
 // ── Auth Functions ──
 window.logout = async function() {
   try {
@@ -258,7 +265,7 @@ const LoginModal = {
       .login-prompt-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.6);
+        background: rgba(0,0,0,0.7);
         z-index: 9998;
         animation: fadeIn 0.2s ease;
       }
@@ -267,8 +274,8 @@ const LoginModal = {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: var(--bg-card, #141820);
-        border: 1px solid var(--gold-border, rgba(212,175,55,0.2));
+        background: #141820;
+        border: 1px solid rgba(212,175,55,0.2);
         border-radius: 16px;
         padding: 32px;
         z-index: 9999;
@@ -283,32 +290,33 @@ const LoginModal = {
         right: 12px;
         background: none;
         border: none;
-        color: var(--text-muted, #6b7280);
+        color: #6b7280;
         cursor: pointer;
         font-size: 18px;
         padding: 4px;
       }
-      .login-prompt-close:hover { color: var(--text-primary, #fff); }
+      .login-prompt-close:hover { color: #fff; }
       .login-prompt-icon {
         width: 64px;
         height: 64px;
         margin: 0 auto 16px;
-        background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(118,75,162,0.2));
+        background: rgba(212,175,55,0.1);
+        border: 1px solid rgba(212,175,55,0.2);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #667eea;
+        color: #d4af37;
       }
       .login-prompt-title {
         font-size: 20px;
         font-weight: 600;
-        color: var(--text-primary, #fff);
+        color: #fff;
         margin: 0 0 8px;
       }
       .login-prompt-text {
         font-size: 14px;
-        color: var(--text-secondary, #9ca3af);
+        color: #9ca3af;
         margin: 0 0 24px;
         line-height: 1.5;
       }
@@ -326,33 +334,34 @@ const LoginModal = {
         padding: 12px 20px;
         border-radius: 8px;
         font-size: 14px;
-        font-weight: 500;
+        font-weight: 600;
         text-decoration: none;
         transition: all 0.2s;
       }
       .login-prompt-primary {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: #fff;
+        background: linear-gradient(135deg, #d4af37, #b8960c);
+        color: #000;
       }
       .login-prompt-primary:hover {
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+        box-shadow: 0 4px 12px rgba(212,175,55,0.3);
+        background: linear-gradient(135deg, #e5c158, #d4af37);
       }
       .login-prompt-secondary {
-        background: rgba(255,255,255,0.06);
-        color: var(--text-primary, #fff);
-        border: 1px solid var(--gold-border, rgba(212,175,55,0.2));
+        background: rgba(255,255,255,0.03);
+        color: #fff;
+        border: 1px solid rgba(212,175,55,0.2);
       }
-      .login-prompt-secondary:hover { background: rgba(255,255,255,0.1); }
+      .login-prompt-secondary:hover { background: rgba(255,255,255,0.06); }
       .login-prompt-skip {
         background: none;
         border: none;
-        color: var(--text-muted, #6b7280);
+        color: #6b7280;
         font-size: 12px;
         cursor: pointer;
         padding: 8px;
       }
-      .login-prompt-skip:hover { color: var(--text-secondary, #9ca3af); }
+      .login-prompt-skip:hover { color: #9ca3af; }
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       @keyframes slideUp { from { opacity: 0; transform: translate(-50%, -40%); } to { opacity: 1; transform: translate(-50%, -50%); } }
     `;

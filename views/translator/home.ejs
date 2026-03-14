@@ -33,10 +33,12 @@
   <!-- Toast Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <div class="app-shell">
-    <!-- Sidebar -->
-    <%- include('../partials/sidebar.ejs', { activeTab: 'translate', user: user }) %>
+  <%- include('../partials/home-mobile-header.ejs', { user: typeof user !== 'undefined' ? user : null }) %>
 
+  <!-- Sidebar outside app-shell so fixed position is viewport-relative on mobile -->
+  <%- include('../partials/sidebar.ejs', { activeTab: 'translate', user: user }) %>
+
+  <div class="app-shell">
     <!-- Main Content -->
     <main class="main-content">
       <header class="top-nav">

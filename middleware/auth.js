@@ -16,13 +16,25 @@ exports.ensureGuest = (req, res, next) => {
 
 // Require admin role
 exports.ensureAdmin = (req, res, next) => {
+  console.log('ensureAdmin check - isAuthenticated:', req.isAuthenticated ? req.isAuthenticated() : 'no method');
+  console.log('ensureAdmin check - user:', req.user);
+  
   if (req.isAuthenticated && req.isAuthenticated()) {
     if (req.user && req.user.role === 'admin') {
       return next();
     }
-    return res.status(403).json({ error: 'Admin access required' });
+    // User is logged in but not admin
+    return res.status(403).render('errors/403', { 
+      title: 'Access Denied',
+      message: 'You need admin privileges to access this page.'
+    });
   }
-  res.status(401).json({ error: 'Login required', needLogin: true });
+  // Not logged in - show admin login page
+  console.log('Rendering admin login page');
+  return res.render('admin/login', {
+    title: 'Admin Login',
+    user: null
+  });
 };
 
 // API Authentication - optional, allows anonymous access but sets user if logged in

@@ -6,174 +6,395 @@
   <title>Manage Glossary — Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #f8fafc;
+      background: #0a0a0a;
       min-height: 100vh;
     }
-    .admin-header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff;
-      padding: 20px 40px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .gloss-layout { 
+      display: grid; 
+      grid-template-columns: 300px 1fr; 
+      gap: 24px; 
+      align-items: start;
     }
-    .admin-logo { font-size: 24px; font-weight: 700; }
-    .admin-nav {
-      display: flex;
-      gap: 24px;
-      align-items: center;
+    .card {
+      background: #0d0d0d;
+      border: 1px solid rgba(212, 175, 55, 0.08);
+      border-radius: 16px;
+      overflow: hidden;
     }
-    .admin-nav a {
-      color: rgba(255,255,255,0.8);
-      text-decoration: none;
-      font-size: 14px;
+    .gloss-cats { 
+      padding: 0; 
+    }
+    .gloss-cats-label { 
+      font-size: 12px; 
+      font-weight: 700; 
+      color: var(--gold-400); 
+      text-transform: uppercase; 
+      letter-spacing: 0.1em; 
+      padding: 20px 20px 12px;
+      border-bottom: 1px solid rgba(212, 175, 55, 0.05);
+    }
+    .cat-row { 
+      margin: 4px 12px;
+      border-radius: 10px;
+    }
+    .cat-row.is-active { 
+      background: rgba(212, 175, 55, 0.1); 
+      border-left: none;
+      box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.2);
+    }
+    .cat-row-name {
       font-weight: 500;
-      transition: color 0.2s;
     }
-    .admin-nav a:hover, .admin-nav a.active { color: #fff; }
-    .admin-user {
+    .nav-item-badge {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+    }
+    .cat-row.is-active .nav-item-badge {
+      background: var(--gold-400);
+      color: #000;
+    }
+    .gloss-terms-head { 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      padding: 16px 20px; 
+      border-bottom: 1px solid rgba(212, 175, 55, 0.08);
+      background: transparent;
+    }
+    .gloss-terms-head h3 { 
+      font-size: 16px; 
+      font-weight: 600; 
+      margin: 0;
+      color: var(--gold-400);
+    }
+    .cat-row-main { flex: 1; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; cursor: pointer; min-width: 0; }
+    .cat-row-name { font-size: 14px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .global-search-container { position: relative; margin-bottom: 24px; }
+    .global-search-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(212, 175, 55, 0.15); border-radius: 12px; transition: border-color .2s, box-shadow .2s; }
+    .global-search-bar:focus-within { border-color: rgba(212, 175, 55, 0.4); box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.08); }
+    .gs-icon { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
+    .gs-input { flex: 1; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 14px; font-family: var(--font-ui); }
+    .gs-input::placeholder { color: var(--text-muted); }
+    .gs-kbd { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.06); color: var(--text-muted); border: 1px solid var(--gold-border); cursor: pointer; font-family: inherit; }
+    .gs-kbd:hover { background: rgba(255, 255, 255, 0.12); color: var(--text-primary); }
+    .gs-dropdown { position: absolute; inset-inline: 0; top: 100%; margin-top: 4px; background: var(--bg-card); border: 1px solid var(--gold-border); border-radius: var(--radius-lg); max-height: 320px; overflow-y: auto; z-index: 100; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35); }
+    .gs-results { padding: 6px; }
+    .gs-result-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: center; padding: 8px 12px; border-radius: var(--radius-md); cursor: pointer; transition: background .15s; font-size: 13px; }
+    .gs-result-row:hover { background: rgba(212, 175, 55, 0.08); }
+    .gs-result-term { color: var(--text-primary); font-weight: 500; }
+    .gs-result-term[dir="rtl"] { text-align: right; }
+    .gs-cat-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: rgba(212, 175, 55, 0.12); color: var(--gold-400); white-space: nowrap; text-align: center; }
+    .gs-no-results { padding: 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
+    .gs-result-row mark { background: rgba(212, 175, 55, 0.25); color: inherit; border-radius: 2px; padding: 0 1px; }
+    /* Category-internal search/filter/sort */
+    .terms-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 20px;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--gold-border);
+    }
+    .terms-search {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .terms-search input {
+      width: 100%;
+      padding: 10px 14px 10px 40px;
+      background: rgba(10, 10, 14, 0.4);
+      border: 1px solid rgba(212, 175, 55, 0.2);
+      border-radius: 12px;
+      font-size: 14px;
+      color: var(--text-primary);
+      outline: none;
+      transition: all 0.2s;
+    }
+    .terms-search input:focus {
+      border-color: var(--gold-400);
+      background: rgba(10, 10, 14, 0.6);
+      box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+    }
+    .terms-search i {
+      position: absolute;
+      left: 14px;
+      color: var(--gold-400);
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .terms-sort {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .terms-sort label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    .terms-sort select {
+      padding: 8px 12px;
+      background: rgba(10, 10, 14, 0.4);
+      border: 1px solid rgba(212, 175, 55, 0.2);
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--text-primary);
+      outline: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .terms-sort select:hover {
+      border-color: var(--gold-400);
+    }
+    .terms-count {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gold-400);
+      padding: 4px 10px;
+      background: rgba(212, 175, 55, 0.1);
+      border: 1px solid rgba(212, 175, 55, 0.15);
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Term Card Design */
+    .term-card-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 4px;
+    }
+    .term-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(212, 175, 55, 0.1);
+      border-radius: 14px;
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 20px;
+      align-items: center;
+      transition: all 0.2s ease;
+    }
+    .term-card:hover {
+      background: rgba(212, 175, 55, 0.04);
+      border-color: rgba(212, 175, 55, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+    .term-lang-group {
       display: flex;
       align-items: center;
       gap: 12px;
+      min-width: 0;
     }
-    .admin-user-avatar {
-      width: 36px;
-      height: 36px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 50%;
+    .lang-indicator {
+      width: 24px;
+      height: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .lang-indicator.en { color: #60a5fa; background: rgba(96, 165, 250, 0.1); border-color: rgba(96, 165, 250, 0.15); }
+    .lang-indicator.ar { color: #34d399; background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.15); }
+    .lang-indicator.es { color: #f87171; background: rgba(248, 113, 113, 0.1); border-color: rgba(248, 113, 113, 0.15); }
+    
+    .term-text {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .term-text[dir="rtl"] {
+      font-size: 16px;
+      font-family: inherit;
+    }
+    .term-actions-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .term-action-btn {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .term-edit-btn:hover {
+      background: rgba(212, 175, 55, 0.15);
+      border-color: var(--gold-400);
+      color: var(--gold-400);
+    }
+    .term-delete-btn:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: #ef4444;
+      color: #ef4444;
     }
     .admin-content {
-      padding: 40px;
-      max-width: 1400px;
+      padding: 32px;
+      max-width: 1600px;
       margin: 0 auto;
     }
-    .admin-title {
-      font-size: 28px;
-      font-weight: 600;
-      color: #1e293b;
+    /* Override layout.css page-header for seamless admin design */
+    .page-header {
+      background: transparent !important;
+      background-image: none !important;
+      border-bottom: 1px solid rgba(212, 175, 55, 0.08);
+      padding: 0 0 24px 0;
       margin-bottom: 24px;
+      position: static;
+      min-height: auto;
     }
-    .tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 24px;
+    .page-body {
+      padding: 0;
     }
-    .tab {
-      padding: 10px 20px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      border: none;
-      background: #fff;
-      color: #64748b;
-      transition: all 0.2s;
-    }
-    .tab.active {
-      background: #667eea;
-      color: #fff;
-    }
-    .tab:hover:not(.active) {
-      background: #f1f5f9;
-    }
-    .panel {
-      display: none;
-    }
-    .panel.active {
-      display: block;
-    }
-    .card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      margin-bottom: 24px;
-    }
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-    .card-title {
-      font-size: 18px;
-      font-weight: 600;
-      color: #1e293b;
-    }
-    .btn {
+    .admin-badge {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 10px 20px;
-      border-radius: 8px;
-      font-size: 14px;
+      gap: 4px;
+      padding: 4px 10px;
+      background: rgba(220, 38, 38, 0.12);
+      color: #ef4444;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    /* Admin-specific styles */
+    .cat-row-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .cat-row:hover .cat-row-actions {
+      opacity: 1;
+    }
+    .cat-action-btn {
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s;
       border: none;
+      transition: all 0.15s;
+      background: transparent;
     }
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff;
+    .cat-edit-btn {
+      color: var(--gold-400);
     }
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    .cat-edit-btn:hover {
+      background: rgba(212, 175, 55, 0.15);
     }
-    .btn-secondary {
-      background: #f1f5f9;
-      color: #374151;
+    .cat-delete-btn {
+      color: #ef4444;
     }
-    .btn-secondary:hover { background: #e2e8f0; }
-    .btn-danger {
-      background: #fef2f2;
-      color: #dc2626;
+    .cat-delete-btn:hover {
+      background: rgba(239, 68, 68, 0.15);
     }
-    .btn-danger:hover { background: #fee2e2; }
-    .btn-sm {
-      padding: 6px 12px;
-      font-size: 12px;
+    .term-row-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.15s;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
+    tr:hover .term-row-actions {
+      opacity: 1;
     }
-    th, td {
-      padding: 12px 16px;
-      text-align: left;
-      border-bottom: 1px solid #e5e7eb;
+    .term-action-btn {
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
     }
-    th {
-      font-size: 12px;
+    .term-edit-btn {
+      background: rgba(212, 175, 55, 0.1);
+      color: var(--gold-400);
+    }
+    .term-edit-btn:hover {
+      background: rgba(212, 175, 55, 0.2);
+    }
+    .term-delete-btn {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+    }
+    .term-delete-btn:hover {
+      background: rgba(239, 68, 68, 0.2);
+    }
+    .add-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: linear-gradient(135deg, #d4af37 0%, #b8960c 100%);
+      color: #000;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 13px;
       font-weight: 600;
-      color: #64748b;
-      text-transform: uppercase;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
     }
-    td { font-size: 14px; color: #374151; }
-    tr:hover { background: #f8fafc; }
+    .add-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+    }
+    /* Modal styles */
     .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 100;
+      display: none !important;
+      position: fixed !important;
+      inset: 0 !important;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 99999 !important;
       align-items: center;
       justify-content: center;
     }
     .modal-overlay.show {
-      display: flex;
+      display: flex !important;
     }
     .modal {
-      background: #fff;
+      position: relative !important;
+      top: auto !important;
+      left: auto !important;
+      transform: none !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      background: var(--bg-card);
+      border: 1px solid var(--gold-border);
       border-radius: 16px;
       padding: 32px;
       width: 100%;
@@ -184,6 +405,7 @@
     .modal-title {
       font-size: 20px;
       font-weight: 600;
+      color: var(--text-primary);
       margin-bottom: 24px;
     }
     .form-group {
@@ -193,173 +415,287 @@
       display: block;
       font-size: 13px;
       font-weight: 500;
-      color: #374151;
+      color: var(--text-muted);
       margin-bottom: 6px;
     }
     .form-input, .form-select, .form-textarea {
       width: 100%;
       padding: 10px 14px;
-      border: 2px solid #e5e7eb;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--gold-border);
       border-radius: 8px;
       font-size: 14px;
+      color: var(--text-primary);
       transition: all 0.2s;
       outline: none;
+      font-family: var(--font-ui);
     }
     .form-input:focus, .form-select:focus, .form-textarea:focus {
-      border-color: #667eea;
+      border-color: var(--gold-400);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .form-select {
+      background-color: var(--bg-card);
+    }
+    .form-select option {
+      background: var(--bg-card);
+      color: var(--text-primary);
     }
     .form-textarea {
       min-height: 100px;
       resize: vertical;
+    }
+    .data-table td {
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+    .data-table th {
+      padding: 10px 12px;
+      font-size: 12px;
     }
     .modal-actions {
       display: flex;
       gap: 12px;
       margin-top: 24px;
     }
-    .back-link {
+    .btn {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
-      margin-top: 24px;
-      color: #667eea;
-      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
       font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
     }
-    .empty-state {
-      text-align: center;
-      padding: 40px;
-      color: #64748b;
+    .btn-primary {
+      background: linear-gradient(135deg, #d4af37, #b8960c);
+      color: #000;
+      font-weight: 600;
     }
-    .actions {
-      display: flex;
-      gap: 8px;
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+      border: 1px solid var(--gold-border);
+    }
+    @media (max-width: 768px) {
+      .admin-content {
+        padding: 16px;
+      }
+      .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+      }
+      .page-header-right {
+        width: 100%;
+        display: flex;
+        gap: 8px;
+      }
+      .add-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+      .gloss-layout {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      .gloss-cats {
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      .card {
+        border-radius: 12px;
+      }
+      .global-search-bar {
+        padding: 10px 12px;
+      }
+      .terms-toolbar {
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 12px 16px;
+      }
+      .terms-search {
+        min-width: 100%;
+        order: 1;
+      }
+      .terms-sort {
+        order: 2;
+      }
+      .terms-count {
+        order: 3;
+        margin-left: auto;
+      }
+      .term-card {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 12px 16px;
+      }
+      .term-actions-wrap {
+        justify-content: flex-end;
+        padding-top: 8px;
+        border-top: 1px solid rgba(212, 175, 55, 0.1);
+      }
+    }
+    @media (max-width: 480px) {
+      .admin-header {
+        padding: 10px 12px;
+      }
+      .admin-nav a {
+        padding: 5px 10px;
+        font-size: 11px;
+      }
+      .admin-user-avatar {
+        width: 32px;
+        height: 32px;
+      }
+      .gloss-cats {
+        max-height: 160px;
+      }
+      .cat-row-main {
+        padding: 8px 10px;
+      }
+      .cat-row-name {
+        font-size: 13px;
+      }
+      .term-card {
+        padding: 10px 12px;
+      }
+      .term-lang-group {
+        gap: 8px;
+      }
+      .lang-indicator {
+        width: 20px;
+        height: 20px;
+        font-size: 9px;
+      }
+      .term-text {
+        font-size: 13px;
+      }
     }
   </style>
 </head>
 <body>
-  <header class="admin-header">
-    <div class="admin-logo">Admin Panel</div>
-    <nav class="admin-nav">
-      <a href="/admin">Dashboard</a>
-      <a href="/admin/glossary" class="active">Glossary</a>
-      <a href="/admin/users">Users</a>
-      <a href="/">View Site</a>
-    </nav>
-    <div class="admin-user">
-      <div class="admin-user-avatar">
-        <i data-lucide="user" style="width:18px;height:18px;"></i>
-      </div>
-      <span><%= user.username %></span>
-    </div>
-  </header>
-
+  <%- include('../partials/admin-header.ejs', { activePage: 'glossary', user: user }) %>
+  
   <main class="admin-content">
-    <h1 class="admin-title">Manage Glossary</h1>
+    <header class="page-header">
+      <div class="page-header-left">
+        <h1 class="page-title">Manage Glossary</h1>
+        <span class="admin-badge"><i data-lucide="shield" style="width:12px;height:12px;"></i> Admin Mode</span>
+      </div>
+      <div class="page-header-right">
+        <button class="add-btn" onclick="openCategoryModal()">
+          <i data-lucide="folder-plus" style="width:14px;height:14px;"></i> Add Category
+        </button>
+        <button class="add-btn" onclick="openTermModal()">
+          <i data-lucide="plus" style="width:14px;height:14px;"></i> Add Term
+        </button>
+      </div>
+    </header>
 
-    <div class="tabs">
-      <button class="tab active" data-tab="categories">Categories</button>
-      <button class="tab" data-tab="terms">Terms</button>
-    </div>
-
-    <div id="categories-panel" class="panel active">
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">Categories</h2>
-          <button class="btn btn-primary" onclick="openCategoryModal()">
-            <i data-lucide="plus" style="width:16px;height:16px;"></i> Add Category
-          </button>
+    <div class="page-body">
+      <!-- Global Search -->
+      <div class="global-search-container">
+        <div class="global-search-bar">
+          <i data-lucide="search" class="gs-icon"></i>
+          <input type="text" class="gs-input" id="global-search" placeholder="Search all glossary terms across all categories..." autocomplete="off">
+          <kbd class="gs-kbd" id="gs-clear" style="display:none;" onclick="clearGlobalSearch()">✕</kbd>
         </div>
-        <% if (categories.length > 0) { %>
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Description</th>
-              <th>Order</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% categories.forEach(cat => { %>
-            <tr>
-              <td><strong><%= cat.name %></strong></td>
-              <td><%= cat.description || '-' %></td>
-              <td><%= cat.order %></td>
-              <td class="actions">
-                <button class="btn btn-secondary btn-sm" onclick='editCategory(<%= JSON.stringify(cat) %>)'>Edit</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteCategory('<%= cat._id %>')">Delete</button>
-              </td>
-            </tr>
-            <% }) %>
-          </tbody>
-        </table>
-        <% } else { %>
-        <div class="empty-state">No categories yet. Create one to get started.</div>
-        <% } %>
+        <div class="gs-dropdown" id="gs-dropdown" style="display:none;">
+          <div class="gs-results" id="gs-results"></div>
+        </div>
+      </div>
+
+      <div class="gloss-layout">
+        <div class="card gloss-cats">
+          <div class="gloss-cats-label">
+            <span>Categories</span>
+          </div>
+          <div id="category-list">
+            <% (categories || []).forEach(function(cat) { %>
+            <div class="cat-row" data-cat-id="<%= cat._id %>">
+              <div class="cat-row-main" onclick="selectCategory('<%= cat._id %>','<%= cat.name %>')">
+                <span class="cat-row-name"><%= cat.name %></span>
+                <span class="nav-item-badge"><%= cat.termCount || 0 %></span>
+              </div>
+              <div class="cat-row-actions">
+                <button class="cat-action-btn cat-edit-btn" onclick='editCategory(<%= JSON.stringify(cat) %>)'>
+                  <i data-lucide="pencil" style="width:12px;height:12px;"></i>
+                </button>
+                <button class="cat-action-btn cat-delete-btn" onclick="deleteCategory('<%= cat._id %>')">
+                  <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+                </button>
+              </div>
+            </div>
+            <% }); %>
+            <% if (!categories || categories.length === 0) { %>
+            <div class="text-muted" style="padding:var(--space-md);font-size:var(--text-sm);text-align:center;">No categories yet.</div>
+            <% } %>
+          </div>
+        </div>
+        <div class="card gloss-terms">
+          <div class="gloss-terms-head">
+            <h3 id="terms-title"><%= (categories && categories[0]) ? categories[0].name : 'Select a category' %></h3>
+          </div>
+          <div class="terms-toolbar">
+            <div class="terms-search">
+              <i data-lucide="search"></i>
+              <input type="text" id="terms-search-input" placeholder="Search in category...">
+            </div>
+            <div class="terms-sort">
+              <label>Sort:</label>
+              <select id="terms-sort-select">
+                <option value="en-asc">English A-Z</option>
+                <option value="en-desc">English Z-A</option>
+                <option value="ar-asc">Arabic A-Z</option>
+                <option value="ar-desc">Arabic Z-A</option>
+                <option value="es-asc">Spanish A-Z</option>
+                <option value="es-desc">Spanish Z-A</option>
+              </select>
+            </div>
+            <span class="terms-count" id="terms-count">0 terms</span>
+          </div>
+          <div id="terms-container" style="padding:var(--space-md);">
+            <div id="terms-loading" style="display:none;" class="page-loader">
+              <div class="spinner"></div>
+            </div>
+            <table class="data-table" id="terms-table" style="display:none;">
+              <thead>
+                <tr>
+                  <th>English</th>
+                  <th style="text-align:right;">Arabic</th>
+                  <th>Spanish</th>
+                  <th style="width:100px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="terms-body"></tbody>
+            </table>
+            <div id="terms-empty" class="empty-state" style="display:none;">
+              <div class="empty-state-icon">📖</div>
+              <div class="empty-state-title">No terms in this category</div>
+              <div class="empty-state-text">Click "Add Term" to create one.</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-
-    <div id="terms-panel" class="panel">
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">Terms</h2>
-          <button class="btn btn-primary" onclick="openTermModal()">
-            <i data-lucide="plus" style="width:16px;height:16px;"></i> Add Term
-          </button>
-        </div>
-        <% if (terms.length > 0) { %>
-        <table>
-          <thead>
-            <tr>
-              <th>Term</th>
-              <th>Category</th>
-              <th>Definition</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% terms.forEach(term => { %>
-            <tr>
-              <td><strong><%= term.term %></strong></td>
-              <td><%= term.category?.name || '-' %></td>
-              <td><%= term.definition?.substring(0, 50) %><%= term.definition?.length > 50 ? '...' : '' %></td>
-              <td class="actions">
-                <button class="btn btn-secondary btn-sm" onclick='editTerm(<%= JSON.stringify(term) %>)'>Edit</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteTerm('<%= term._id %>')">Delete</button>
-              </td>
-            </tr>
-            <% }) %>
-          </tbody>
-        </table>
-        <% } else { %>
-        <div class="empty-state">No terms yet. Create a category first, then add terms.</div>
-        <% } %>
-      </div>
-    </div>
-
-    <a href="/admin" class="back-link">
-      <i data-lucide="arrow-left" style="width:16px;height:16px;"></i> Back to Dashboard
-    </a>
   </main>
 
   <!-- Category Modal -->
-  <div id="category-modal" class="modal-overlay">
-    <div class="modal">
+  <div id="category-modal" class="modal-overlay" onclick="if(event.target===this)closeCategoryModal()">
+    <div class="modal" onclick="event.stopPropagation()">
       <h3 class="modal-title" id="category-modal-title">Add Category</h3>
       <form id="category-form">
         <input type="hidden" id="category-id">
         <div class="form-group">
           <label class="form-label">Name</label>
           <input type="text" class="form-input" id="category-name" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Description</label>
-          <textarea class="form-textarea" id="category-description"></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Order</label>
-          <input type="number" class="form-input" id="category-order" value="0">
         </div>
         <div class="modal-actions">
           <button type="submit" class="btn btn-primary">Save</button>
@@ -370,30 +706,30 @@
   </div>
 
   <!-- Term Modal -->
-  <div id="term-modal" class="modal-overlay">
-    <div class="modal">
+  <div id="term-modal" class="modal-overlay" onclick="if(event.target===this)closeTermModal()">
+    <div class="modal" onclick="event.stopPropagation()">
       <h3 class="modal-title" id="term-modal-title">Add Term</h3>
       <form id="term-form">
         <input type="hidden" id="term-id">
         <div class="form-group">
           <label class="form-label">Category</label>
           <select class="form-select" id="term-category" required>
-            <% categories.forEach(cat => { %>
+            <% (categories || []).forEach(function(cat) { %>
             <option value="<%= cat._id %>"><%= cat.name %></option>
-            <% }) %>
+            <% }); %>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Term</label>
-          <input type="text" class="form-input" id="term-term" required>
+          <label class="form-label">English</label>
+          <input type="text" class="form-input" id="term-en" required>
         </div>
         <div class="form-group">
-          <label class="form-label">Definition</label>
-          <textarea class="form-textarea" id="term-definition"></textarea>
+          <label class="form-label">Arabic</label>
+          <input type="text" class="form-input" id="term-ar" dir="rtl">
         </div>
         <div class="form-group">
-          <label class="form-label">Notes</label>
-          <textarea class="form-textarea" id="term-notes"></textarea>
+          <label class="form-label">Spanish</label>
+          <input type="text" class="form-input" id="term-es">
         </div>
         <div class="modal-actions">
           <button type="submit" class="btn btn-primary">Save</button>
@@ -403,19 +739,277 @@
     </div>
   </div>
 
+  <script src="/js/app.js?v=2"></script>
   <script>
     lucide.createIcons();
     
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById(tab.dataset.tab + '-panel').classList.add('active');
+    var activeCategoryId = document.querySelector('.cat-row') ? document.querySelector('.cat-row').dataset.catId : null;
+    if (activeCategoryId) { loadTerms(activeCategoryId); document.querySelector('.cat-row').classList.add('is-active'); }
+
+    function selectCategory(id, name) {
+      activeCategoryId = id;
+      document.getElementById('terms-title').textContent = name;
+      document.querySelectorAll('.cat-row').forEach(function(el) { el.classList.toggle('is-active', el.dataset.catId === id); });
+      loadTerms(id);
+    }
+
+    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    var allTerms = [];
+    var currentSort = 'en-asc';
+    var currentSearch = '';
+
+    function loadTerms(catId) {
+      var loadingEl = document.getElementById('terms-loading');
+      var tableEl = document.getElementById('terms-table');
+      var emptyEl = document.getElementById('terms-empty');
+      var searchInput = document.getElementById('terms-search-input');
+      
+      if (loadingEl) loadingEl.style.display = 'flex';
+      if (tableEl) tableEl.style.display = 'none';
+      if (emptyEl) emptyEl.style.display = 'none';
+      if (searchInput) searchInput.value = '';
+      currentSearch = '';
+      
+      api('/glossary/term?category_id=' + catId).then(function(res) {
+        allTerms = res.terms || [];
+        renderTerms();
+        if (loadingEl) loadingEl.style.display = 'none';
+      }).catch(function() { 
+        Toast.error('Failed to load terms.'); 
+        if (loadingEl) loadingEl.style.display = 'none';
       });
+    }
+
+    function renderTerms() {
+      var container = document.getElementById('terms-container');
+      var terms = allTerms.slice();
+      
+      // Filter by search
+      if (currentSearch) {
+        var q = currentSearch.toLowerCase();
+        terms = terms.filter(function(t) {
+          return (t.term_en || '').toLowerCase().includes(q) ||
+                 (t.term_ar || '').toLowerCase().includes(q) ||
+                 (t.term_es || '').toLowerCase().includes(q);
+        });
+      }
+      
+      // Sort
+      var sortField = currentSort.split('-')[0];
+      var sortDir = currentSort.split('-')[1];
+      var fieldMap = { en: 'term_en', ar: 'term_ar', es: 'term_es' };
+      terms.sort(function(a, b) {
+        var va = (a[fieldMap[sortField]] || '').toLowerCase();
+        var vb = (b[fieldMap[sortField]] || '').toLowerCase();
+        if (sortDir === 'desc') { var tmp = va; va = vb; vb = tmp; }
+        return va.localeCompare(vb);
+      });
+      
+      // Update count
+      var countEl = document.getElementById('terms-count');
+      if (countEl) countEl.textContent = terms.length + ' term' + (terms.length !== 1 ? 's' : '');
+      
+      if (terms.length) {
+        var html = '<div class="term-card-grid">';
+        html += terms.map(function(t) {
+          var termId = t._id || t.id;
+          return '<div class="term-card">'
+            + '<div class="term-lang-group">'
+              + '<span class="lang-indicator en">EN</span>'
+              + '<span class="term-text">' + esc(t.term_en || '—') + '</span>'
+            + '</div>'
+            + '<div class="term-lang-group">'
+              + '<span class="lang-indicator ar">AR</span>'
+              + '<span class="term-text" dir="rtl">' + esc(t.term_ar || '—') + '</span>'
+            + '</div>'
+            + '<div class="term-lang-group">'
+              + '<span class="lang-indicator es">ES</span>'
+              + '<span class="term-text">' + esc(t.term_es || '—') + '</span>'
+            + '</div>'
+            + '<div class="term-actions-wrap">'
+              + '<button class="term-action-btn term-edit-btn" onclick=\'editTerm(' + JSON.stringify(t) + ')\' title="Edit Term"><i data-lucide="pencil" style="width:14px;height:14px;"></i></button>'
+              + '<button class="term-action-btn term-delete-btn" onclick="deleteTerm(\'' + termId + '\')" title="Delete Term"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>'
+            + '</div>'
+            + '</div>';
+        }).join('');
+        html += '</div>';
+        
+        container.innerHTML = html;
+        lucide.createIcons();
+      } else {
+        container.innerHTML = '<div id="terms-empty" class="empty-state" style="display:flex;">'
+          + '<div class="empty-state-icon">📖</div>'
+          + '<div class="empty-state-title">No terms found</div>'
+          + '<div class="empty-state-text">' + (currentSearch ? 'No terms match your search.' : 'Click "Add Term" to create one.') + '</div>'
+          + '</div>';
+      }
+    }
+
+    // Terms search input
+    var termsSearchInput = document.getElementById('terms-search-input');
+    if (termsSearchInput) {
+      termsSearchInput.addEventListener('input', function() {
+        currentSearch = this.value.trim();
+        renderTerms();
+      });
+    }
+
+    // Terms sort select
+    var termsSortSelect = document.getElementById('terms-sort-select');
+    if (termsSortSelect) {
+      termsSortSelect.addEventListener('change', function() {
+        currentSort = this.value;
+        renderTerms();
+      });
+    }
+
+    // Global Search
+    var gsInput = document.getElementById('global-search');
+    var gsDropdown = document.getElementById('gs-dropdown');
+    var gsResults = document.getElementById('gs-results');
+    var gsClear = document.getElementById('gs-clear');
+    var gsTimer = null;
+
+    function escGs(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    function highlightMatch(text, query) {
+      if (!text || !query) return escGs(text || '\u2014');
+      var escaped = escGs(text);
+      var re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+      return escaped.replace(re, '<mark>$1</mark>');
+    }
+
+    gsInput.addEventListener('input', function() {
+      var q = gsInput.value.trim();
+      gsClear.style.display = q ? 'inline' : 'none';
+      clearTimeout(gsTimer);
+      if (!q) { gsDropdown.style.display = 'none'; return; }
+      gsTimer = setTimeout(function() {
+        api('/glossary/search?q=' + encodeURIComponent(q)).then(function(res) {
+          var items = res.results || [];
+          if (!items.length) {
+            gsResults.innerHTML = '<div class="gs-no-results">No terms found for "' + escGs(q) + '"</div>';
+          } else {
+            console.log('Search items:', items);
+            console.log('First item keys:', items[0] ? Object.keys(items[0]) : 'no items');
+            // Normalize term IDs to ensure consistency
+            items.forEach(function(t) {
+              console.log('Processing item:', t);
+              if (!t._id && t.id) {
+                console.log('Setting _id from id:', t.id);
+                t._id = t.id; // Ensure _id field exists
+              }
+            });
+            gsResults.innerHTML = items.map(function(t) {
+              // Normalize term IDs to ensure consistency
+              if (!t._id && t.id) {
+                t._id = t.id; // Ensure _id field exists
+              }
+              var actualId = t._id || t.id;
+              console.log('Creating onclick with actualId:', actualId);
+              return '<div class="gs-result-row" data-term-id="' + actualId + '" onclick="openEditModalFromSearch(\'' + actualId + '\')" style="cursor:pointer;">'
+                + '<span class="gs-result-term">' + highlightMatch(t.term_en, q) + '</span>'
+                + '<span class="gs-result-term">' + highlightMatch(t.term_ar, q) + '</span>'
+                + '<span class="gs-result-term">' + highlightMatch(t.term_es, q) + '</span>'
+                + '<span class="gs-cat-badge">' + escGs(t.category_name) + '</span>'
+                + '</div>';
+            }).join('');
+            // Store term data for click handling
+            window._gsSearchTerms = items;
+          }
+          gsDropdown.style.display = 'block';
+          lucide.createIcons();
+        }).catch(function() { });
+      }, 250);
     });
-    
+
+    function openEditModal(term) {
+      document.getElementById('term-modal-title').textContent = 'Edit Term';
+      document.getElementById('term-id').value = term._id;
+      document.getElementById('term-category').value = term.category_id || activeCategoryId;
+      document.getElementById('term-en').value = term.term_en || '';
+      document.getElementById('term-ar').value = term.term_ar || '';
+      document.getElementById('term-es').value = term.term_es || '';
+      document.getElementById('term-modal').classList.add('show');
+      gsDropdown.style.display = 'none';
+      lucide.createIcons();
+    }
+
+    window.openEditModalFromSearch = function(termId) {
+      console.log('openEditModalFromSearch called with termId:', termId);
+      console.log('window._gsSearchTerms:', window._gsSearchTerms);
+      
+      // Validate termId
+      if (!termId || termId === 'undefined') {
+        console.error('Invalid termId passed to openEditModalFromSearch');
+        Toast.error('Invalid term ID');
+        return;
+      }
+      
+      var term = window._gsSearchTerms && window._gsSearchTerms.find(function(t) { 
+        return (t._id || t.id) === termId; 
+      });
+      console.log('Found term:', term);
+      if (term) {
+        var actualTermId = term._id || term.id;
+        console.log('Using actualTermId:', actualTermId);
+        document.getElementById('term-modal-title').textContent = 'Edit Term';
+        document.getElementById('term-id').value = actualTermId;
+        document.getElementById('term-category').value = term.category_id || activeCategoryId;
+        document.getElementById('term-en').value = term.term_en || '';
+        document.getElementById('term-ar').value = term.term_ar || '';
+        document.getElementById('term-es').value = term.term_es || '';
+        document.getElementById('term-modal').classList.add('show');
+        gsDropdown.style.display = 'none';
+        lucide.createIcons();
+      } else {
+        console.error('Term not found for ID:', termId);
+        Toast.error('Term not found');
+      }
+    };
+
+    function editSearchTerm(termId) {
+      // Find the term from allTerms or fetch it
+      var term = allTerms.find(function(t) { return t._id === termId; });
+      if (!term) {
+        // Fetch term data from server
+        api('/glossary/term/' + termId).then(function(res) {
+          if (res.term) {
+            openEditModal(res.term);
+          }
+        }).catch(function() { Toast.error('Failed to load term'); });
+        return;
+      }
+      openEditModal(term);
+    }
+
+    function clearGlobalSearch() {
+      gsInput.value = '';
+      gsDropdown.style.display = 'none';
+      gsClear.style.display = 'none';
+      gsInput.focus();
+    }
+
+    document.addEventListener('click', function(e) {
+      // Handle click on search result row first
+      var row = e.target.closest('.gs-result-row[data-term-id]');
+      if (row) {
+        var termId = row.getAttribute('data-term-id');
+        var term = window._gsSearchTerms && window._gsSearchTerms.find(function(t) { return t._id === termId; });
+        if (term) {
+          openEditModal(term);
+          e.stopPropagation();
+          return; // Don't hide dropdown if we opened the modal
+        }
+      }
+      
+      // Hide dropdown when clicking outside
+      if (!e.target.closest('.global-search-container')) {
+        gsDropdown.style.display = 'none';
+      }
+    });
+
     // Category Modal
     function openCategoryModal() {
       document.getElementById('category-modal-title').textContent = 'Add Category';
@@ -423,31 +1017,28 @@
       document.getElementById('category-id').value = '';
       document.getElementById('category-modal').classList.add('show');
     }
-    
+
     function closeCategoryModal() {
       document.getElementById('category-modal').classList.remove('show');
     }
-    
+
     function editCategory(cat) {
       document.getElementById('category-modal-title').textContent = 'Edit Category';
       document.getElementById('category-id').value = cat._id;
       document.getElementById('category-name').value = cat.name;
-      document.getElementById('category-description').value = cat.description || '';
-      document.getElementById('category-order').value = cat.order || 0;
       document.getElementById('category-modal').classList.add('show');
+      lucide.createIcons();
     }
-    
+
     document.getElementById('category-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('category-id').value;
       const data = {
-        name: document.getElementById('category-name').value,
-        description: document.getElementById('category-description').value,
-        order: parseInt(document.getElementById('category-order').value) || 0
+        name: document.getElementById('category-name').value
       };
-      
+
       try {
-        const url = id ? `/admin/categories/${id}` : '/admin/categories';
+        const url = id ? '/admin/categories/' + id : '/admin/categories';
         const method = id ? 'PUT' : 'POST';
         const res = await fetch(url, {
           method,
@@ -458,91 +1049,108 @@
         if (result.success) {
           window.location.reload();
         } else {
-          alert(result.error);
+          Toast.error(result.error || 'Failed to save category');
         }
       } catch (err) {
-        alert('Failed to save category');
+        Toast.error('Failed to save category');
       }
     });
-    
+
     async function deleteCategory(id) {
       if (!confirm('Delete this category and all its terms?')) return;
       try {
-        const res = await fetch(`/admin/categories/${id}`, { method: 'DELETE' });
+        const res = await fetch('/admin/categories/' + id, { method: 'DELETE' });
         const result = await res.json();
         if (result.success) {
           window.location.reload();
         } else {
-          alert(result.error);
+          Toast.error(result.error || 'Failed to delete category');
         }
       } catch (err) {
-        alert('Failed to delete category');
+        Toast.error('Failed to delete category');
       }
     }
-    
+
     // Term Modal
     function openTermModal() {
       document.getElementById('term-modal-title').textContent = 'Add Term';
       document.getElementById('term-form').reset();
       document.getElementById('term-id').value = '';
+      if (activeCategoryId) {
+        document.getElementById('term-category').value = activeCategoryId;
+      }
       document.getElementById('term-modal').classList.add('show');
     }
-    
+
     function closeTermModal() {
       document.getElementById('term-modal').classList.remove('show');
     }
-    
+
     function editTerm(term) {
+      var termId = term._id || term.id;
       document.getElementById('term-modal-title').textContent = 'Edit Term';
-      document.getElementById('term-id').value = term._id;
-      document.getElementById('term-category').value = term.category?._id || term.category;
-      document.getElementById('term-term').value = term.term;
-      document.getElementById('term-definition').value = term.definition || '';
-      document.getElementById('term-notes').value = term.notes || '';
+      document.getElementById('term-id').value = termId;
+      document.getElementById('term-category').value = term.category_id || term.category || activeCategoryId;
+      document.getElementById('term-en').value = term.term_en || '';
+      document.getElementById('term-ar').value = term.term_ar || '';
+      document.getElementById('term-es').value = term.term_es || '';
       document.getElementById('term-modal').classList.add('show');
     }
-    
+
     document.getElementById('term-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('term-id').value;
+      console.log('Form submitted with id:', id);
+      
+      // Validate ID before sending
+      if (!id || id === 'undefined') {
+        Toast.error('Invalid term ID');
+        return;
+      }
+      
       const data = {
         category: document.getElementById('term-category').value,
-        term: document.getElementById('term-term').value,
-        definition: document.getElementById('term-definition').value,
-        notes: document.getElementById('term-notes').value
+        term_en: document.getElementById('term-en').value,
+        term_ar: document.getElementById('term-ar').value,
+        term_es: document.getElementById('term-es').value
       };
-      
+      console.log('Sending data:', data);
+
       try {
-        const url = id ? `/admin/terms/${id}` : '/admin/terms';
+        const url = id ? '/admin/terms/' + id : '/admin/terms';
         const method = id ? 'PUT' : 'POST';
+        console.log('Fetching:', method, url);
         const res = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
         const result = await res.json();
+        console.log('Response:', result);
         if (result.success) {
           window.location.reload();
         } else {
-          alert(result.error);
+          Toast.error(result.error || 'Failed to save term');
         }
       } catch (err) {
-        alert('Failed to save term');
+        console.error('Error:', err);
+        Toast.error('Failed to save term');
       }
     });
-    
+
     async function deleteTerm(id) {
       if (!confirm('Delete this term?')) return;
       try {
-        const res = await fetch(`/admin/terms/${id}`, { method: 'DELETE' });
+        const res = await fetch('/admin/terms/' + id, { method: 'DELETE' });
         const result = await res.json();
         if (result.success) {
-          window.location.reload();
+          loadTerms(activeCategoryId);
+          Toast.success('Term deleted');
         } else {
-          alert(result.error);
+          Toast.error(result.error || 'Failed to delete term');
         }
       } catch (err) {
-        alert('Failed to delete term');
+        Toast.error('Failed to delete term');
       }
     }
   </script>

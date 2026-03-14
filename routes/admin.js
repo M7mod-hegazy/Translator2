@@ -28,16 +28,24 @@ router.get('/', ensureAdmin, async (req, res) => {
 // Glossary management
 router.get('/glossary', ensureAdmin, async (req, res) => {
   try {
-    const categories = await Category.find().sort({ order: 1, name: 1 });
-    const terms = await GlossaryTerm.find()
-      .populate('category')
-      .sort({ term: 1 });
+    const categories = await Category.find().sort({ order: 1, name: 1 }).lean();
+    
+    // Get term count for each category
+    const termCounts = await GlossaryTerm.aggregate([
+      { $group: { _id: '$category', count: { $sum: 1 } } }
+    ]);
+    const countMap = {};
+    termCounts.forEach(tc => { countMap[tc._id.toString()] = tc.count; });
+    
+    // Add termCount to each category
+    categories.forEach(cat => {
+      cat.termCount = countMap[cat._id.toString()] || 0;
+    });
     
     res.render('admin/glossary', {
       title: 'Manage Glossary',
       user: req.user,
-      categories,
-      terms
+      categories
     });
   } catch (err) {
     console.error(err);
@@ -48,8 +56,8 @@ router.get('/glossary', ensureAdmin, async (req, res) => {
 // Add category
 router.post('/categories', ensureAdmin, async (req, res) => {
   try {
-    const { name, description, order } = req.body;
-    const category = new Category({ name, description, order: order || 0 });
+    const { name } = req.body;
+    const category = new Category({ name });
     await category.save();
     res.json({ success: true, category });
   } catch (err) {
@@ -60,10 +68,10 @@ router.post('/categories', ensureAdmin, async (req, res) => {
 // Update category
 router.put('/categories/:id', ensureAdmin, async (req, res) => {
   try {
-    const { name, description, order } = req.body;
+    const { name } = req.body;
     const category = await Category.findByIdAndUpdate(
       req.params.id,
-      { name, description, order: order || 0 },
+      { name },
       { new: true }
     );
     res.json({ success: true, category });
@@ -86,8 +94,13 @@ router.delete('/categories/:id', ensureAdmin, async (req, res) => {
 // Add term
 router.post('/terms', ensureAdmin, async (req, res) => {
   try {
-    const { category, term, definition, notes } = req.body;
-    const newTerm = new GlossaryTerm({ category, term, definition, notes });
+    const { category, term_en, term_ar, term_es } = req.body;
+    const newTerm = new GlossaryTerm({ 
+      category, 
+      termEn: term_en, 
+      termAr: term_ar, 
+      termEs: term_es 
+    });
     await newTerm.save();
     res.json({ success: true, term: newTerm });
   } catch (err) {
@@ -98,14 +111,23 @@ router.post('/terms', ensureAdmin, async (req, res) => {
 // Update term
 router.put('/terms/:id', ensureAdmin, async (req, res) => {
   try {
-    const { category, term, definition, notes } = req.body;
+    const { category, term_en, term_ar, term_es } = req.body;
+    console.log('[Admin] Updating term:', req.params.id, 'with data:', { category, term_en, term_ar, term_es });
+    
     const updated = await GlossaryTerm.findByIdAndUpdate(
       req.params.id,
-      { category, term, definition, notes },
+      { 
+        category, 
+        termEn: term_en, 
+        termAr: term_ar, 
+        termEs: term_es 
+      },
       { new: true }
     );
+    console.log('[Admin] Updated term:', updated);
     res.json({ success: true, term: updated });
   } catch (err) {
+    console.error('[Admin] Update error:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -28,7 +28,7 @@
     .history-count { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 
     /* Grid */
-    .sessions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--space-md); }
+    .sessions-grid { display: grid; grid-template-columns: repeat(auto-fill ; gap: var(--space-md); }
 
     /* Card */
     .session-card { background: var(--bg-card); border: 1px solid rgba(212,175,55,0.08); border-radius: var(--radius-lg); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; cursor: pointer; transition: all .3s cubic-bezier(.4,0,.2,1); animation: cardIn .45s var(--ease-out) both; position: relative; }
@@ -135,7 +135,7 @@
       .history-search-bar { display: block !important; width: 100% !important; min-height: 40px; }
       .history-search-input { font-size: 13px !important; padding: 9px 36px 9px 36px !important; display: block !important; width: 100% !important; box-sizing: border-box !important; }
       .search-icon { width: 13px; height: 13px; left: 12px; }
-      .sessions-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
+      .sessions-grid { gap: 8px; }
       .session-card { border-radius: var(--radius-md); }
       .card-top { padding: 12px 10px 8px; }
       .card-title { font-size: 11px; max-width: calc(100% - 26px); }
@@ -166,9 +166,10 @@
   </style>
 </head>
 <body>
+  <%- include('../partials/home-mobile-header.ejs', { user: typeof user !== 'undefined' ? user : null }) %>
   <%- include('../partials/sidebar.ejs', { activeTab: 'history', user: user }) %>
-  
-  <main class="main-content">
+  <div class="app-shell">
+    <main class="main-content">
     
     
     <header class="page-header hist-header">
@@ -267,6 +268,7 @@
       <% } %>
     </div>
   </main>
+  </div>
 
   <script src="/js/app.js?v=2"></script>
   <script>

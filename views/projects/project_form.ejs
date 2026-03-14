@@ -13,9 +13,10 @@
   <link rel="stylesheet" href="/css/layout.css">
 </head>
 <body>
-  <%- include('../partials/sidebar.ejs', { activeTab: 'projects' }) %>
-  
-  <main class="main-content">
+  <%- include('../partials/home-mobile-header.ejs', { user: typeof user !== 'undefined' ? user : null }) %>
+  <%- include('../partials/sidebar.ejs', { activeTab: 'projects', user: typeof user !== 'undefined' ? user : null }) %>
+  <div class="app-shell">
+    <main class="main-content">
     <div class="address-bar">
       <div class="address-bar-item">
         <i data-lucide="home" style="width:12px;height:12px;"></i>
@@ -108,6 +109,7 @@
       </div>
     </div>
   </main>
+  </div>
 
   <script src="/js/app.js"></script>
   <script>

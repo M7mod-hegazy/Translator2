@@ -1,0 +1,25 @@
+<header class="home-mobile-header">
+  <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle menu">
+    <i data-lucide="menu" style="width:24px;height:24px;"></i>
+  </button>
+  <div class="home-mobile-logo">
+    <div class="admin-logo-icon">
+      <i data-lucide="languages" style="width:18px;height:18px;"></i>
+    </div>
+    <span class="admin-logo-text">Translate</span>
+  </div>
+  <div class="home-mobile-right">
+    <% if (typeof user !== 'undefined' && user) { %>
+      <div class="admin-user-avatar">
+        <i data-lucide="user" style="width:16px;height:16px;"></i>
+      </div>
+      <button class="logout-btn" onclick="logout()" aria-label="Logout">
+        <i data-lucide="log-out" style="width:18px;height:18px;"></i>
+      </button>
+    <% } else { %>
+      <a href="/auth/login" class="home-login-btn" aria-label="Login">
+        <i data-lucide="log-in" style="width:18px;height:18px;"></i>
+      </a>
+    <% } %>
+  </div>
+</header>

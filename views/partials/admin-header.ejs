@@ -1,0 +1,32 @@
+<header class="admin-header">
+  <div class="header-left">
+    <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle menu">
+      <i data-lucide="menu" style="width:24px;height:24px;"></i>
+    </button>
+    <div class="admin-logo">
+      <div class="admin-logo-icon">
+        <i data-lucide="shield" style="width:18px;height:18px;"></i>
+      </div>
+      <span class="admin-logo-text">Admin</span>
+    </div>
+  </div>
+  <nav class="admin-nav" id="admin-nav">
+    <button class="mobile-menu-close" onclick="toggleMobileMenu()" aria-label="Close menu">
+      <i data-lucide="x" style="width:32px;height:32px;"></i>
+    </button>
+    <a href="/admin" class="<%= typeof activePage !== 'undefined' && activePage === 'dashboard' ? 'active' : '' %>">Dashboard</a>
+    <a href="/admin/glossary" class="<%= typeof activePage !== 'undefined' && activePage === 'glossary' ? 'active' : '' %>">Glossary</a>
+    <a href="/admin/users" class="<%= typeof activePage !== 'undefined' && activePage === 'users' ? 'active' : '' %>">Users</a>
+    <a href="/">View Site</a>
+  </nav>
+  <div class="admin-user">
+    <div class="admin-user-avatar">
+      <i data-lucide="user" style="width:16px;height:16px;"></i>
+    </div>
+    <span class="admin-user-name"><%= user.username %></span>
+    <button class="logout-btn" onclick="logout()">
+      <i data-lucide="log-out" style="width:14px;height:14px;"></i>
+      Logout
+    </button>
+  </div>
+</header>

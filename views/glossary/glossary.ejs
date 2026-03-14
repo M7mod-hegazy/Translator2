@@ -40,6 +40,143 @@
     .gs-cat-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: rgba(212, 175, 55, 0.12); color: var(--gold-400); white-space: nowrap; text-align: center; }
     .gs-no-results { padding: 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
     .gs-result-row mark { background: rgba(212, 175, 55, 0.25); color: inherit; border-radius: 2px; padding: 0 1px; }
+    /* Category-internal search/filter/sort */
+    .terms-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 20px;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--gold-border);
+    }
+    .terms-search {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .terms-search input {
+      width: 100%;
+      padding: 10px 14px 10px 40px;
+      background: rgba(10, 10, 14, 0.4);
+      border: 1px solid rgba(212, 175, 55, 0.2);
+      border-radius: 12px;
+      font-size: 14px;
+      color: var(--text-primary);
+      outline: none;
+      transition: all 0.2s;
+    }
+    .terms-search input:focus {
+      border-color: var(--gold-400);
+      background: rgba(10, 10, 14, 0.6);
+      box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+    }
+    .terms-search i {
+      position: absolute;
+      left: 14px;
+      color: var(--gold-400);
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .terms-sort {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .terms-sort label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    .terms-sort select {
+      padding: 8px 12px;
+      background: rgba(10, 10, 14, 0.4);
+      border: 1px solid rgba(212, 175, 55, 0.2);
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--text-primary);
+      outline: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .terms-sort select:hover {
+      border-color: var(--gold-400);
+    }
+    .terms-count {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gold-400);
+      padding: 4px 10px;
+      background: rgba(212, 175, 55, 0.1);
+      border: 1px solid rgba(212, 175, 55, 0.15);
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Term Card Design */
+    .term-card-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 4px;
+    }
+    .term-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(212, 175, 55, 0.1);
+      border-radius: 14px;
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      align-items: center;
+      transition: all 0.2s ease;
+    }
+    .term-card:hover {
+      background: rgba(212, 175, 55, 0.04);
+      border-color: rgba(212, 175, 55, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+    .term-lang-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .lang-indicator {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .lang-indicator.en { color: #60a5fa; background: rgba(96, 165, 250, 0.1); border-color: rgba(96, 165, 250, 0.15); }
+    .lang-indicator.ar { color: #34d399; background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.15); }
+    .lang-indicator.es { color: #f87171; background: rgba(248, 113, 113, 0.1); border-color: rgba(248, 113, 113, 0.15); }
+    
+    .term-text {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .term-text[dir="rtl"] {
+      font-size: 16px;
+      font-family: inherit;
+    }
     .admin-edit-btn {
       display: inline-flex;
       align-items: center;
@@ -69,27 +206,170 @@
       font-weight: 600;
     }
     @media (max-width: 768px) {
-      .gloss-layout { flex-direction: column !important; gap: var(--space-sm); }
-      .gloss-cats { width: 100% !important; min-width: 0 !important; max-height: 160px; overflow-y: auto; }
-      .gloss-terms { width: 100% !important; }
-      .cat-row { animation: slideInLeft 0.3s var(--ease-out) both; }
-      .global-search-container { padding: 0; }
-      .gs-input { font-size: 14px !important; }
-      .gs-dropdown { max-height: 250px; }
-      .page-header { flex-wrap: wrap; gap: var(--space-sm); }
-      .page-header-right { width: 100%; display: flex; gap: var(--space-xs); }
-      .page-header-right .btn { flex: 1; justify-content: center; }
+      .gloss-layout { 
+        grid-template-columns: 1fr; 
+        gap: 16px; 
+      }
+      .gloss-cats { 
+        max-height: 180px; 
+        overflow-y: auto; 
+        padding: 12px;
+      }
+      .gloss-terms { 
+        width: 100%; 
+      }
+      .cat-row { 
+        margin-bottom: 4px;
+      }
+      .cat-row-main {
+        padding: 10px 12px;
+      }
+      .cat-row-name {
+        font-size: 14px;
+      }
+      .gloss-cats-label {
+        padding: 12px;
+        font-size: 11px;
+      }
+      .global-search-container { 
+        margin-bottom: 16px; 
+      }
+      .global-search-bar {
+        padding: 10px 12px;
+      }
+      .gs-input { 
+        font-size: 14px; 
+      }
+      .gs-dropdown { 
+        max-height: 250px; 
+      }
+      .gs-result-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+        padding: 10px 12px;
+      }
+      .gs-cat-badge {
+        justify-self: start;
+      }
+      .page-header { 
+        flex-wrap: wrap; 
+        gap: 12px; 
+        padding: 16px;
+      }
+      .page-title {
+        font-size: 20px;
+      }
+      .page-header-right { 
+        width: 100%; 
+        display: flex; 
+        gap: 8px; 
+      }
+      .page-header-right .btn,
+      .admin-edit-btn { 
+        flex: 1; 
+        justify-content: center; 
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+      .preview-badge {
+        font-size: 10px;
+      }
+      .terms-toolbar {
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 12px 16px;
+      }
+      .terms-search {
+        min-width: 100%;
+        order: 1;
+      }
+      .terms-search input {
+        padding: 10px 12px 10px 36px;
+      }
+      .terms-sort {
+        order: 2;
+      }
+      .terms-count {
+        order: 3;
+        margin-left: auto;
+      }
+      .term-card {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding: 14px 16px;
+      }
+      .term-lang-group {
+        gap: 10px;
+      }
+      .lang-indicator {
+        width: 22px;
+        height: 22px;
+        font-size: 9px;
+      }
+      .term-text {
+        font-size: 14px;
+      }
+      .gloss-terms-head {
+        padding: 14px 16px;
+      }
+      .gloss-terms-head h3 {
+        font-size: 16px;
+      }
     }
     @media (max-width: 480px) {
-      .gloss-cats { max-height: 120px; }
-      .cat-row-name { font-size: 12px; }
+      .gloss-cats { 
+        max-height: 140px; 
+        padding: 10px;
+      }
+      .cat-row-main {
+        padding: 8px 10px;
+      }
+      .cat-row-name { 
+        font-size: 13px; 
+      }
+      .gloss-cats-label {
+        padding: 10px;
+        font-size: 10px;
+      }
+      .nav-item-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+      }
+      .page-title {
+        font-size: 18px;
+      }
+      .preview-badge {
+        font-size: 9px;
+      }
+      .admin-edit-btn {
+        font-size: 11px;
+        padding: 8px 10px;
+      }
+      .term-card {
+        padding: 12px 14px;
+      }
+      .term-lang-group {
+        gap: 8px;
+      }
+      .lang-indicator {
+        width: 20px;
+        height: 20px;
+        font-size: 8px;
+      }
+      .term-text {
+        font-size: 13px;
+      }
+      .term-text[dir="rtl"] {
+        font-size: 14px;
+      }
     }
   </style>
 </head>
 <body>
+  <%- include('../partials/home-mobile-header.ejs', { user: typeof user !== 'undefined' ? user : null }) %>
   <%- include('../partials/sidebar.ejs', { activeTab: 'glossary', user: user }) %>
-  
-  <main class="main-content">
+  <div class="app-shell">
+    <main class="main-content">
     <header class="page-header">
       <div class="page-header-left">
         <h1 class="page-title">Glossary</h1>
@@ -105,18 +385,6 @@
     </header>
 
     <div class="page-body">
-      <!-- Global Search -->
-      <div class="global-search-container">
-        <div class="global-search-bar">
-          <i data-lucide="search" class="gs-icon"></i>
-          <input type="text" class="gs-input" id="global-search" placeholder="Search all glossary terms across all categories..." autocomplete="off">
-          <kbd class="gs-kbd" id="gs-clear" style="display:none;" onclick="clearGlobalSearch()">✕</kbd>
-        </div>
-        <div class="gs-dropdown" id="gs-dropdown" style="display:none;">
-          <div class="gs-results" id="gs-results"></div>
-        </div>
-      </div>
-
       <div class="gloss-layout">
         <div class="card gloss-cats">
           <div class="gloss-cats-label">Categories</div>
@@ -137,6 +405,24 @@
         <div class="card gloss-terms">
           <div class="gloss-terms-head">
             <h3 id="terms-title"><%= (categories && categories[0]) ? categories[0].name : 'Select a category' %></h3>
+          </div>
+          <div class="terms-toolbar">
+            <div class="terms-search">
+              <i data-lucide="search"></i>
+              <input type="text" id="terms-search-input" placeholder="Search in category...">
+            </div>
+            <div class="terms-sort">
+              <label>Sort:</label>
+              <select id="terms-sort-select">
+                <option value="en-asc">English A-Z</option>
+                <option value="en-desc">English Z-A</option>
+                <option value="ar-asc">Arabic A-Z</option>
+                <option value="ar-desc">Arabic Z-A</option>
+                <option value="es-asc">Spanish A-Z</option>
+                <option value="es-desc">Spanish Z-A</option>
+              </select>
+            </div>
+            <span class="terms-count" id="terms-count">0 terms</span>
           </div>
           <div id="terms-container" style="padding:var(--space-md);">
             <div id="terms-loading" style="display:none;" class="page-loader">
@@ -162,6 +448,7 @@
       </div>
     </div>
   </main>
+  </div>
 
   <script src="/js/app.js?v=2"></script>
   <script>
@@ -179,79 +466,112 @@
 
     function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+    var allTerms = [];
+    var currentSort = 'en-asc';
+    var currentSearch = '';
+
     function loadTerms(catId) {
-      document.getElementById('terms-loading').style.display = 'flex';
-      document.getElementById('terms-table').style.display = 'none';
-      document.getElementById('terms-empty').style.display = 'none';
+      var loadingEl = document.getElementById('terms-loading');
+      var tableEl = document.getElementById('terms-table');
+      var emptyEl = document.getElementById('terms-empty');
+      var searchInput = document.getElementById('terms-search-input');
+      
+      if (loadingEl) loadingEl.style.display = 'flex';
+      if (tableEl) tableEl.style.display = 'none';
+      if (emptyEl) emptyEl.style.display = 'none';
+      if (searchInput) searchInput.value = '';
+      currentSearch = '';
+      
       api('/glossary/term?category_id=' + catId).then(function(res) {
-        var tbody = document.getElementById('terms-body');
-        var terms = res.terms || [];
-        if (terms.length) {
-          tbody.innerHTML = terms.map(function(t) {
-            return '<tr>'
-              + '<td style="font-weight:500;min-width:120px;">' + esc(t.term_en || '\u2014') + '</td>'
-              + '<td style="min-width:120px;">' + esc(t.term_ar || '\u2014') + '</td>'
-              + '<td style="min-width:120px;">' + esc(t.term_es || '\u2014') + '</td>'
-              + '</tr>';
-          }).join('');
-          document.getElementById('terms-table').style.display = 'table';
-        } else {
-          document.getElementById('terms-empty').style.display = 'flex';
-        }
-        document.getElementById('terms-loading').style.display = 'none';
-      }).catch(function() { Toast.error('Failed to load terms.'); document.getElementById('terms-loading').style.display = 'none'; });
+        allTerms = res.terms || [];
+        renderTerms();
+        if (loadingEl) loadingEl.style.display = 'none';
+      }).catch(function() { 
+        Toast.error('Failed to load terms.'); 
+        if (loadingEl) loadingEl.style.display = 'none';
+      });
     }
 
-    // Global Search
-    var gsInput = document.getElementById('global-search');
-    var gsDropdown = document.getElementById('gs-dropdown');
-    var gsResults = document.getElementById('gs-results');
-    var gsClear = document.getElementById('gs-clear');
-    var gsTimer = null;
-
-    function escGs(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-    function highlightMatch(text, query) {
-      if (!text || !query) return escGs(text || '\u2014');
-      var escaped = escGs(text);
-      var re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-      return escaped.replace(re, '<mark>$1</mark>');
+    function renderTerms() {
+      var container = document.getElementById('terms-container');
+      var terms = allTerms.slice();
+      
+      // Filter by search
+      if (currentSearch) {
+        var q = currentSearch.toLowerCase();
+        terms = terms.filter(function(t) {
+          return (t.term_en || '').toLowerCase().includes(q) ||
+                 (t.term_ar || '').toLowerCase().includes(q) ||
+                 (t.term_es || '').toLowerCase().includes(q);
+        });
+      }
+      
+      // Sort
+      var sortField = currentSort.split('-')[0];
+      var sortDir = currentSort.split('-')[1];
+      var fieldMap = { en: 'term_en', ar: 'term_ar', es: 'term_es' };
+      terms.sort(function(a, b) {
+        var va = (a[fieldMap[sortField]] || '').toLowerCase();
+        var vb = (b[fieldMap[sortField]] || '').toLowerCase();
+        if (sortDir === 'desc') { var tmp = va; va = vb; vb = tmp; }
+        return va.localeCompare(vb);
+      });
+      
+      // Update count
+      var countEl = document.getElementById('terms-count');
+      if (countEl) countEl.textContent = terms.length + ' term' + (terms.length !== 1 ? 's' : '');
+      
+      if (terms.length) {
+        var html = '<div class="term-card-grid">';
+        html += terms.map(function(t) {
+          return '<div class="term-card">'
+            + '<div class="term-lang-group">'
+              + '<span class="lang-indicator en">EN</span>'
+              + '<span class="term-text">' + esc(t.term_en || '\u2014') + '</span>'
+            + '</div>'
+            + '<div class="term-lang-group">'
+              + '<span class="lang-indicator ar">AR</span>'
+              + '<span class="term-text" dir="rtl">' + esc(t.term_ar || '\u2014') + '</span>'
+            + '</div>'
+            + '<div class="term-lang-group">'
+              + '<span class="lang-indicator es">ES</span>'
+              + '<span class="term-text">' + esc(t.term_es || '\u2014') + '</span>'
+            + '</div>'
+            + '</div>';
+        }).join('');
+        html += '</div>';
+        
+        container.innerHTML = html;
+        lucide.createIcons();
+      } else {
+        container.innerHTML = '<div id="terms-empty" class="empty-state" style="display:flex;">'
+          + '<div class="empty-state-icon">📖</div>'
+          + '<div class="empty-state-title">No terms found</div>'
+          + '<div class="empty-state-text">' + (currentSearch ? 'No terms match your search.' : 'This category is empty.') + '</div>'
+          + '</div>';
+      }
     }
 
-    gsInput.addEventListener('input', function() {
-      var q = gsInput.value.trim();
-      gsClear.style.display = q ? 'inline' : 'none';
-      clearTimeout(gsTimer);
-      if (!q) { gsDropdown.style.display = 'none'; return; }
-      gsTimer = setTimeout(function() {
-        api('/glossary/search?q=' + encodeURIComponent(q)).then(function(res) {
-          var items = res.results || [];
-          if (!items.length) {
-            gsResults.innerHTML = '<div class="gs-no-results">No terms found for "' + escGs(q) + '"</div>';
-          } else {
-            gsResults.innerHTML = items.map(function(t) {
-              return '<div class="gs-result-row" onclick="selectCategory(\'' + t.category_id + '\',\'' + escGs(t.category_name).replace(/'/g, "\\'") + '\')">'
-                + '<span class="gs-result-term">' + highlightMatch(t.term_en, q) + '</span>'
-                + '<span class="gs-result-term">' + highlightMatch(t.term_ar, q) + '</span>'
-                + '<span class="gs-result-term">' + highlightMatch(t.term_es, q) + '</span>'
-                + '<span class="gs-cat-badge">' + escGs(t.category_name) + '</span>'
-                + '</div>';
-            }).join('');
-          }
-          gsDropdown.style.display = 'block';
-        }).catch(function() { });
-      }, 250);
-    });
+    // Terms search input
+    var termsSearchInput = document.getElementById('terms-search-input');
+    if (termsSearchInput) {
+      termsSearchInput.addEventListener('input', function() {
+        currentSearch = this.value.trim();
+        renderTerms();
+      });
+    }
 
-    function clearGlobalSearch() {
-      gsInput.value = '';
-      gsDropdown.style.display = 'none';
-      gsClear.style.display = 'none';
-      gsInput.focus();
+    // Terms sort select
+    var termsSortSelect = document.getElementById('terms-sort-select');
+    if (termsSortSelect) {
+      termsSortSelect.addEventListener('change', function() {
+        currentSort = this.value;
+        renderTerms();
+      });
     }
 
     document.addEventListener('click', function(e) {
-      if (!e.target.closest('.global-search-container')) gsDropdown.style.display = 'none';
+      // No global search to handle
     });
   </script>
 </body>

@@ -12,59 +12,276 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #080a12;
-      color: #fff;
       min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    
+    /* Left Section - Animated Characters */
+    .left-section {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: linear-gradient(135deg, #1a1505 0%, #2d0d0a 50%, #0d0202 100%);
+      padding: 48px;
+      color: #fff;
+      overflow: hidden;
+    }
+    
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 600;
+      position: relative;
+      z-index: 20;
+    }
+    
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: rgba(212, 175, 55, 0.15);
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      color: #d4af37;
     }
-    .auth-container {
+    
+    .brand-name {
+      color: #d4af37;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    /* Character Container */
+    .characters-container {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      height: 500px;
+    }
+    
+    .character-stage {
+      position: relative;
+      width: 550px;
+      height: 400px;
+    }
+    
+    /* Eye Ball Component */
+    .eyeball {
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: height 0.15s;
+      overflow: hidden;
+    }
+    
+    .eyeball.blinking {
+      height: 2px !important;
+    }
+    
+    .pupil {
+      border-radius: 50%;
+      transition: transform 0.1s ease-out;
+    }
+    
+    /* Characters */
+    .char-red {
+      position: absolute;
+      bottom: 0;
+      left: 70px;
+      width: 180px;
+      height: 400px;
+      background: #b8960c;
+      border-radius: 10px 10px 0 0;
+      z-index: 1;
+      transition: all 0.7s ease-in-out;
+      transform-origin: bottom center;
+    }
+    
+    .char-red .eyes {
+      position: absolute;
+      display: flex;
+      gap: 32px;
+      transition: all 0.7s ease-in-out;
+    }
+    
+    .char-black {
+      position: absolute;
+      bottom: 0;
+      left: 240px;
+      width: 120px;
+      height: 310px;
+      background: #0a0a0a;
+      border-radius: 8px 8px 0 0;
+      z-index: 2;
+      transition: all 0.7s ease-in-out;
+      transform-origin: bottom center;
+    }
+    
+    .char-black .eyes {
+      position: absolute;
+      display: flex;
+      gap: 24px;
+      transition: all 0.7s ease-in-out;
+    }
+    
+    .char-orange {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 240px;
+      height: 200px;
+      background: #d4af37;
+      border-radius: 120px 120px 0 0;
+      z-index: 3;
+      transition: all 0.7s ease-in-out;
+      transform-origin: bottom center;
+    }
+    
+    .char-orange .eyes {
+      position: absolute;
+      display: flex;
+      gap: 32px;
+      transition: all 0.2s ease-out;
+    }
+    
+    .char-yellow {
+      position: absolute;
+      bottom: 0;
+      left: 310px;
+      width: 140px;
+      height: 230px;
+      background: #1a1506;
+      border-radius: 70px 70px 0 0;
+      z-index: 4;
+      transition: all 0.7s ease-in-out;
+      transform-origin: bottom center;
+    }
+    
+    .char-yellow .eyes {
+      position: absolute;
+      display: flex;
+      gap: 24px;
+      transition: all 0.2s ease-out;
+    }
+    
+    .char-yellow .mouth {
+      position: absolute;
+      width: 80px;
+      height: 4px;
+      background: #d4af37;
+      border-radius: 2px;
+      transition: all 0.2s ease-out;
+    }
+    
+    /* Decorative elements */
+    .grid-overlay {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(212, 175, 55, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(212, 175, 55, 0.03) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    
+    .glow-1 {
+      position: absolute;
+      top: 25%;
+      right: 25%;
+      width: 256px;
+      height: 256px;
+      background: rgba(212, 175, 55, 0.1);
+      border-radius: 50%;
+      filter: blur(80px);
+    }
+    
+    .glow-2 {
+      position: absolute;
+      bottom: 25%;
+      left: 25%;
+      width: 384px;
+      height: 384px;
+      background: rgba(212, 175, 55, 0.05);
+      border-radius: 50%;
+      filter: blur(80px);
+    }
+    
+    /* Right Section - Login Form */
+    .right-section {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      background: #080a12;
+    }
+    
+    .form-container {
       width: 100%;
       max-width: 420px;
     }
-    .auth-card {
-      background: #141820;
-      border: 1px solid rgba(212, 175, 55, 0.2);
-      border-radius: 20px;
-      padding: 40px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-      animation: fadeInUp 0.5s ease-out;
+    
+    .mobile-brand {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 48px;
     }
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .auth-header {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-    .auth-logo {
-      font-size: 32px;
-      font-weight: 700;
+    
+    .mobile-brand-icon {
+      width: 32px;
+      height: 32px;
+      background: rgba(212, 175, 55, 0.1);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       color: #d4af37;
-      text-transform: uppercase;
-      letter-spacing: 2px;
     }
-    .auth-subtitle {
-      color: #9ca3af;
+    
+    .form-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    
+    .form-title {
+      font-size: 30px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    
+    .form-subtitle {
+      color: #6b7280;
       font-size: 14px;
-      margin-top: 8px;
     }
+    
     .form-group {
       margin-bottom: 20px;
     }
+    
     .form-label {
       display: block;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 500;
       color: #9ca3af;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
+    
     .form-input {
       width: 100%;
-      padding: 12px 16px;
+      height: 48px;
+      padding: 0 16px;
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(212, 175, 55, 0.2);
       border-radius: 10px;
@@ -73,11 +290,85 @@
       transition: all 0.2s;
       outline: none;
     }
+    
     .form-input:focus {
       border-color: #d4af37;
       background: rgba(255, 255, 255, 0.05);
       box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
     }
+    
+    .form-input::placeholder {
+      color: #4b5563;
+    }
+    
+    .password-wrapper {
+      position: relative;
+    }
+    
+    .password-toggle {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #6b7280;
+      cursor: pointer;
+      padding: 4px;
+      transition: color 0.2s;
+    }
+    
+    .password-toggle:hover {
+      color: #fff;
+    }
+    
+    .form-options {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    
+    .checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .checkbox {
+      width: 16px;
+      height: 16px;
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+      appearance: none;
+      transition: all 0.2s;
+    }
+    
+    .checkbox:checked {
+      background: #d4af37;
+      border-color: #d4af37;
+    }
+    
+    .checkbox-label {
+      font-size: 14px;
+      color: #9ca3af;
+      cursor: pointer;
+    }
+    
+    .forgot-link {
+      font-size: 14px;
+      color: #d4af37;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    
+    .forgot-link:hover {
+      color: #b8960c;
+    }
+    
     .btn {
       display: inline-flex;
       align-items: center;
@@ -85,156 +376,496 @@
       gap: 8px;
       padding: 12px 24px;
       border-radius: 10px;
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
       border: none;
     }
+    
     .btn-primary {
       background: linear-gradient(135deg, #d4af37 0%, #b8960c 100%);
       color: #000;
       font-weight: 600;
       width: 100%;
+      height: 48px;
     }
+    
     .btn-primary:hover {
       transform: translateY(-1px);
       box-shadow: 0 10px 20px -10px rgba(212, 175, 55, 0.4);
-      background: linear-gradient(135deg, #e5c158 0%, #d4af37 100%);
     }
-    .btn-primary:active {
-      transform: translateY(0);
+    
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
     }
-    .auth-divider {
-      display: flex;
-      align-items: center;
-      margin: 24px 0;
-      color: #4b5563;
-      font-size: 13px;
-    }
-    .auth-divider::before,
-    .auth-divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: rgba(212, 175, 55, 0.1);
-    }
-    .auth-divider span {
-      padding: 0 16px;
-    }
-    .auth-footer {
-      text-align: center;
-      color: #9ca3af;
+    
+    .error-message {
+      padding: 12px 16px;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 10px;
+      color: #ef4444;
       font-size: 14px;
+      margin-bottom: 20px;
+      display: none;
     }
-    .auth-footer a {
-      color: #d4af37;
-      text-decoration: none;
-      font-weight: 500;
+    
+    .error-message.show {
+      display: block;
     }
-    .auth-footer a:hover {
-      text-decoration: underline;
-    }
-    .back-link {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-top: 24px;
+    
+    .signup-link {
+      text-align: center;
       color: #6b7280;
       font-size: 14px;
-      text-decoration: none;
-      transition: color 0.2s;
+      margin-top: 32px;
     }
-    .back-link:hover {
+    
+    .signup-link a {
       color: #d4af37;
-    }
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 12px 24px;
-      border-radius: 10px;
-      font-size: 14px;
+      text-decoration: none;
       font-weight: 500;
-      z-index: 1000;
-      animation: slideUp 0.3s ease-out;
     }
-    .toast-error {
-      background: #fef2f2;
-      color: #dc2626;
-      border: 1px solid #fecaca;
+    
+    .signup-link a:hover {
+      text-decoration: underline;
     }
-    .toast-success {
-      background: #f0fdf4;
-      color: #16a34a;
-      border: 1px solid #bbf7d0;
+    
+    /* Responsive */
+    @media (max-width: 1024px) {
+      body {
+        grid-template-columns: 1fr;
+      }
+      
+      .left-section {
+        display: none;
+      }
+      
+      .mobile-brand {
+        display: flex;
+      }
     }
-    @keyframes slideUp {
-      from { opacity: 0; transform: translate(-50%, 20px); }
-      to { opacity: 1; transform: translate(-50%, 0); }
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
-  <div class="auth-container">
-    <div class="auth-card">
-      <div class="auth-header">
-        <div class="auth-logo">Translator</div>
-        <p class="auth-subtitle">Sign in to your account</p>
+  <!-- Left Section - Animated Characters -->
+  <div class="left-section">
+    <div class="brand">
+      <div class="brand-icon">
+        <i data-lucide="languages" style="width:18px;height:18px;"></i>
       </div>
-
+      <span class="brand-name">Translator</span>
+    </div>
+    
+    <div class="characters-container">
+      <div class="character-stage">
+        <!-- Red tall character -->
+        <div class="char-red" id="char-red">
+          <div class="eyes" id="red-eyes">
+            <div class="eyeball" style="width:18px;height:18px;background:white;" id="red-eye1">
+              <div class="pupil" style="width:7px;height:7px;background:#b8960c;"></div>
+            </div>
+            <div class="eyeball" style="width:18px;height:18px;background:white;" id="red-eye2">
+              <div class="pupil" style="width:7px;height:7px;background:#b8960c;"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Black tall character -->
+        <div class="char-black" id="char-black">
+          <div class="eyes" id="black-eyes">
+            <div class="eyeball" style="width:16px;height:16px;background:white;" id="black-eye1">
+              <div class="pupil" style="width:6px;height:6px;background:#b8960c;"></div>
+            </div>
+            <div class="eyeball" style="width:16px;height:16px;background:white;" id="black-eye2">
+              <div class="pupil" style="width:6px;height:6px;background:#b8960c;"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Orange semi-circle character -->
+        <div class="char-orange" id="char-orange">
+          <div class="eyes" id="orange-eyes">
+            <div class="pupil" style="width:12px;height:12px;background:#fff;" id="orange-eye1"></div>
+            <div class="pupil" style="width:12px;height:12px;background:#fff;" id="orange-eye2"></div>
+          </div>
+        </div>
+        
+        <!-- Dark red tall character -->
+        <div class="char-yellow" id="char-yellow">
+          <div class="eyes" id="yellow-eyes">
+            <div class="pupil" style="width:12px;height:12px;background:#d4af37;" id="yellow-eye1"></div>
+            <div class="pupil" style="width:12px;height:12px;background:#d4af37;" id="yellow-eye2"></div>
+          </div>
+          <div class="mouth" id="yellow-mouth"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="grid-overlay"></div>
+    <div class="glow-1"></div>
+    <div class="glow-2"></div>
+  </div>
+  
+  <!-- Right Section - Login Form -->
+  <div class="right-section">
+    <div class="form-container">
+      <!-- Mobile Logo -->
+      <div class="mobile-brand">
+        <div class="mobile-brand-icon">
+          <i data-lucide="languages" style="width:16px;height:16px;"></i>
+        </div>
+        <span style="color:#d4af37;text-transform:uppercase;letter-spacing:1px;">Translator</span>
+      </div>
+      
+      <div class="form-header">
+        <h1 class="form-title">Welcome back!</h1>
+        <p class="form-subtitle">Please enter your details</p>
+      </div>
+      
       <form id="login-form">
         <div class="form-group">
           <label class="form-label" for="username">Username or Email</label>
-          <input type="text" class="form-input" id="username" name="username" placeholder="Enter your username" required autofocus>
+          <input type="text" class="form-input" id="username" name="username" placeholder="Enter your username" autocomplete="username" required>
         </div>
+        
         <div class="form-group">
           <label class="form-label" for="password">Password</label>
-          <input type="password" class="form-input" id="password" name="password" placeholder="Enter your password" required>
+          <div class="password-wrapper">
+            <input type="password" class="form-input" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+            <button type="button" class="password-toggle" id="toggle-password">
+              <i data-lucide="eye" style="width:20px;height:20px;"></i>
+            </button>
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary">
-          <i data-lucide="log-in" style="width:18px;height:18px;"></i> Sign In
+        
+        <div class="form-options">
+          <div class="checkbox-wrapper">
+            <input type="checkbox" class="checkbox" id="remember">
+            <label class="checkbox-label" for="remember">Remember for 30 days</label>
+          </div>
+          <a href="#" class="forgot-link">Forgot password?</a>
+        </div>
+        
+        <div class="error-message" id="error-message"></div>
+        
+        <button type="submit" class="btn btn-primary" id="submit-btn">
+          Log in
         </button>
       </form>
-
-      <div class="auth-divider"><span>or</span></div>
-
-      <div class="auth-footer">
-        Don't have an account? <a href="/auth/register">Create one</a>
+      
+      <div class="signup-link">
+        Don't have an account? <a href="/auth/register">Sign Up</a>
       </div>
     </div>
-
-    <a href="/" class="back-link">
-      <i data-lucide="arrow-left" style="width:16px;height:16px;"></i> Back to Translator
-    </a>
   </div>
 
   <script>
     lucide.createIcons();
     
-    function showToast(message, type = 'error') {
-      const existing = document.querySelector('.toast');
-      if (existing) existing.remove();
+    // State
+    let mouseX = 0;
+    let mouseY = 0;
+    let isTyping = false;
+    let showPassword = false;
+    let isRedBlinking = false;
+    let isBlackBlinking = false;
+    let isLookingAtEachOther = false;
+    let isRedPeeking = false;
+    
+    const passwordInput = document.getElementById('password');
+    const usernameInput = document.getElementById('username');
+    const toggleBtn = document.getElementById('toggle-password');
+    const errorMsg = document.getElementById('error-message');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    // Character elements
+    const charRed = document.getElementById('char-red');
+    const charBlack = document.getElementById('char-black');
+    const charOrange = document.getElementById('char-orange');
+    const charYellow = document.getElementById('char-yellow');
+    const redEyes = document.getElementById('red-eyes');
+    const blackEyes = document.getElementById('black-eyes');
+    const orangeEyes = document.getElementById('orange-eyes');
+    const yellowEyes = document.getElementById('yellow-eyes');
+    const yellowMouth = document.getElementById('yellow-mouth');
+    const redEye1 = document.getElementById('red-eye1');
+    const redEye2 = document.getElementById('red-eye2');
+    const blackEye1 = document.getElementById('black-eye1');
+    const blackEye2 = document.getElementById('black-eye2');
+    
+    // Mouse tracking
+    document.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      updateCharacters();
+    });
+    
+    // Calculate position for character
+    function calculatePosition(element) {
+      if (!element) return { faceX: 0, faceY: 0, bodySkew: 0 };
       
-      const toast = document.createElement('div');
-      toast.className = `toast toast-${type}`;
-      toast.textContent = message;
-      document.body.appendChild(toast);
+      const rect = element.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 3;
       
-      setTimeout(() => toast.remove(), 3000);
+      const deltaX = mouseX - centerX;
+      const deltaY = mouseY - centerY;
+      
+      const faceX = Math.max(-15, Math.min(15, deltaX / 20));
+      const faceY = Math.max(-10, Math.min(10, deltaY / 30));
+      const bodySkew = Math.max(-6, Math.min(6, -deltaX / 120));
+      
+      return { faceX, faceY, bodySkew };
     }
     
+    // Update all characters
+    function updateCharacters() {
+      const redPos = calculatePosition(charRed);
+      const blackPos = calculatePosition(charBlack);
+      const orangePos = calculatePosition(charOrange);
+      const yellowPos = calculatePosition(charYellow);
+      
+      const password = passwordInput.value;
+      
+      // Red character
+      if (isTyping || (password.length > 0 && !showPassword)) {
+        charRed.style.height = '440px';
+        charRed.style.transform = `skewX(${redPos.bodySkew - 12}deg) translateX(40px)`;
+      } else if (password.length > 0 && showPassword) {
+        charRed.style.height = '440px';
+        charRed.style.transform = 'skewX(0deg)';
+      } else {
+        charRed.style.height = '400px';
+        charRed.style.transform = `skewX(${redPos.bodySkew}deg)`;
+      }
+      
+      // Red eyes position
+      if (password.length > 0 && showPassword) {
+        redEyes.style.left = '20px';
+        redEyes.style.top = '35px';
+      } else if (isLookingAtEachOther) {
+        redEyes.style.left = '55px';
+        redEyes.style.top = '65px';
+      } else {
+        redEyes.style.left = `${45 + redPos.faceX}px`;
+        redEyes.style.top = `${40 + redPos.faceY}px`;
+      }
+      
+      // Black character
+      if (password.length > 0 && showPassword) {
+        charBlack.style.transform = 'skewX(0deg)';
+      } else if (isLookingAtEachOther) {
+        charBlack.style.transform = `skewX(${blackPos.bodySkew * 1.5 + 10}deg) translateX(20px)`;
+      } else if (isTyping || (password.length > 0 && !showPassword)) {
+        charBlack.style.transform = `skewX(${blackPos.bodySkew * 1.5}deg)`;
+      } else {
+        charBlack.style.transform = `skewX(${blackPos.bodySkew}deg)`;
+      }
+      
+      // Black eyes position
+      if (password.length > 0 && showPassword) {
+        blackEyes.style.left = '10px';
+        blackEyes.style.top = '28px';
+      } else if (isLookingAtEachOther) {
+        blackEyes.style.left = '32px';
+        blackEyes.style.top = '12px';
+      } else {
+        blackEyes.style.left = `${26 + blackPos.faceX}px`;
+        blackEyes.style.top = `${32 + blackPos.faceY}px`;
+      }
+      
+      // Orange character
+      charOrange.style.transform = (password.length > 0 && showPassword) ? 'skewX(0deg)' : `skewX(${orangePos.bodySkew}deg)`;
+      if (password.length > 0 && showPassword) {
+        orangeEyes.style.left = '50px';
+        orangeEyes.style.top = '85px';
+      } else {
+        orangeEyes.style.left = `${82 + orangePos.faceX}px`;
+        orangeEyes.style.top = `${90 + orangePos.faceY}px`;
+      }
+      
+      // Yellow character
+      charYellow.style.transform = (password.length > 0 && showPassword) ? 'skewX(0deg)' : `skewX(${yellowPos.bodySkew}deg)`;
+      if (password.length > 0 && showPassword) {
+        yellowEyes.style.left = '20px';
+        yellowEyes.style.top = '35px';
+        yellowMouth.style.left = '10px';
+        yellowMouth.style.top = '88px';
+      } else {
+        yellowEyes.style.left = `${52 + yellowPos.faceX}px`;
+        yellowEyes.style.top = `${40 + yellowPos.faceY}px`;
+        yellowMouth.style.left = `${40 + yellowPos.faceX}px`;
+        yellowMouth.style.top = `${88 + yellowPos.faceY}px`;
+      }
+      
+      // Update pupil positions
+      updatePupils();
+    }
+    
+    // Update pupil positions based on mouse
+    function updatePupils() {
+      const password = passwordInput.value;
+      
+      // Red pupils
+      const redPupilX = (password.length > 0 && showPassword) ? (isRedPeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined;
+      const redPupilY = (password.length > 0 && showPassword) ? (isRedPeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined;
+      updatePupil(redEye1, redPupilX, redPupilY, 5);
+      updatePupil(redEye2, redPupilX, redPupilY, 5);
+      
+      // Black pupils
+      const blackPupilX = (password.length > 0 && showPassword) ? -4 : isLookingAtEachOther ? 0 : undefined;
+      const blackPupilY = (password.length > 0 && showPassword) ? -4 : isLookingAtEachOther ? -4 : undefined;
+      updatePupil(blackEye1, blackPupilX, blackPupilY, 4);
+      updatePupil(blackEye2, blackPupilX, blackPupilY, 4);
+      
+      // Orange pupils (direct, no eyeball)
+      const orangePupilX = (password.length > 0 && showPassword) ? -5 : undefined;
+      const orangePupilY = (password.length > 0 && showPassword) ? -4 : undefined;
+      updatePupilPosition(document.getElementById('orange-eye1'), orangePupilX, orangePupilY, 5);
+      updatePupilPosition(document.getElementById('orange-eye2'), orangePupilX, orangePupilY, 5);
+      
+      // Yellow pupils
+      const yellowPupilX = (password.length > 0 && showPassword) ? -5 : undefined;
+      const yellowPupilY = (password.length > 0 && showPassword) ? -4 : undefined;
+      updatePupilPosition(document.getElementById('yellow-eye1'), yellowPupilX, yellowPupilY, 5);
+      updatePupilPosition(document.getElementById('yellow-eye2'), yellowPupilX, yellowPupilY, 5);
+    }
+    
+    function updatePupil(eyeball, forceX, forceY, maxDist) {
+      if (!eyeball) return;
+      const pupil = eyeball.querySelector('.pupil');
+      if (!pupil) return;
+      
+      if (forceX !== undefined && forceY !== undefined) {
+        pupil.style.transform = `translate(${forceX}px, ${forceY}px)`;
+      } else {
+        const rect = eyeball.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        const deltaX = mouseX - centerX;
+        const deltaY = mouseY - centerY;
+        const distance = Math.min(Math.sqrt(deltaX ** 2 + deltaY ** 2), maxDist);
+        const angle = Math.atan2(deltaY, deltaX);
+        const x = Math.cos(angle) * distance;
+        const y = Math.sin(angle) * distance;
+        
+        pupil.style.transform = `translate(${x}px, ${y}px)`;
+      }
+    }
+    
+    function updatePupilPosition(pupil, forceX, forceY, maxDist) {
+      if (!pupil) return;
+      
+      if (forceX !== undefined && forceY !== undefined) {
+        pupil.style.transform = `translate(${forceX}px, ${forceY}px)`;
+      } else {
+        const rect = pupil.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        const deltaX = mouseX - centerX;
+        const deltaY = mouseY - centerY;
+        const distance = Math.min(Math.sqrt(deltaX ** 2 + deltaY ** 2), maxDist);
+        const angle = Math.atan2(deltaY, deltaX);
+        const x = Math.cos(angle) * distance;
+        const y = Math.sin(angle) * distance;
+        
+        pupil.style.transform = `translate(${x}px, ${y}px)`;
+      }
+    }
+    
+    // Blinking effects
+    function scheduleBlink(eye1, eye2, setBlinking) {
+      const interval = Math.random() * 4000 + 3000;
+      setTimeout(() => {
+        setBlinking(true);
+        eye1.classList.add('blinking');
+        eye2.classList.add('blinking');
+        setTimeout(() => {
+          eye1.classList.remove('blinking');
+          eye2.classList.remove('blinking');
+          setBlinking(false);
+          scheduleBlink(eye1, eye2, setBlinking);
+        }, 150);
+      }, interval);
+    }
+    
+    scheduleBlink(redEye1, redEye2, (v) => isRedBlinking = v);
+    scheduleBlink(blackEye1, blackEye2, (v) => isBlackBlinking = v);
+    
+    // Typing detection
+    usernameInput.addEventListener('focus', () => {
+      isTyping = true;
+      triggerLookAtEachOther();
+    });
+    
+    usernameInput.addEventListener('blur', () => {
+      isTyping = false;
+    });
+    
+    passwordInput.addEventListener('input', () => {
+      updateCharacters();
+      
+      // Purple peeking animation
+      if (passwordInput.value.length > 0 && showPassword) {
+        schedulePeek();
+      }
+    });
+    
+    function triggerLookAtEachOther() {
+      isLookingAtEachOther = true;
+      updateCharacters();
+      setTimeout(() => {
+        isLookingAtEachOther = false;
+        updateCharacters();
+      }, 800);
+    }
+    
+    function schedulePeek() {
+      if (!showPassword || passwordInput.value.length === 0) return;
+      
+      setTimeout(() => {
+        isRedPeeking = true;
+        updatePupils();
+        setTimeout(() => {
+          isRedPeeking = false;
+          updatePupils();
+          if (showPassword && passwordInput.value.length > 0) {
+            schedulePeek();
+          }
+        }, 800);
+      }, Math.random() * 3000 + 2000);
+    }
+    
+    // Password toggle
+    toggleBtn.addEventListener('click', () => {
+      showPassword = !showPassword;
+      passwordInput.type = showPassword ? 'text' : 'password';
+      toggleBtn.innerHTML = showPassword 
+        ? '<i data-lucide="eye-off" style="width:20px;height:20px;"></i>'
+        : '<i data-lucide="eye" style="width:20px;height:20px;"></i>';
+      lucide.createIcons();
+      updateCharacters();
+    });
+    
+    // Form submission
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.target;
-      const btn = form.querySelector('button[type="submit"]');
-      const originalText = btn.innerHTML;
+      const originalText = submitBtn.innerHTML;
       
-      btn.disabled = true;
-      btn.innerHTML = '<i data-lucide="loader-2" style="width:18px;height:18px;animation:spin 1s linear infinite;"></i> Signing in...';
-      lucide.createIcons();
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = 'Signing in...';
       
       try {
         const res = await fetch('/auth/login', {
@@ -249,21 +880,18 @@
         const result = await res.json();
         
         if (result.success) {
-          showToast('Welcome back!', 'success');
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 500);
+          window.location.href = '/';
         } else {
-          showToast(result.error || 'Login failed');
-          btn.disabled = false;
-          btn.innerHTML = originalText;
-          lucide.createIcons();
+          errorMsg.textContent = result.error || 'Invalid email or password. Please try again.';
+          errorMsg.classList.add('show');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
         }
       } catch (err) {
-        showToast('Login failed. Please try again.');
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-        lucide.createIcons();
+        errorMsg.textContent = 'Login failed. Please try again.';
+        errorMsg.classList.add('show');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
       }
     });
   </script>

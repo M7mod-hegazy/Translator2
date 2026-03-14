@@ -16,17 +16,23 @@ router.get('/login', ensureGuest, (req, res) => {
 
 // Login process
 router.post('/login', (req, res, next) => {
+  console.log('Login attempt:', req.body.username);
+  
   passport.authenticate('local', (err, user, info) => {
     if (err) {
+      console.error('Passport error:', err);
       return res.status(500).json({ error: 'Server error' });
     }
     if (!user) {
+      console.log('No user found:', info);
       return res.status(401).json({ error: info.message || 'Invalid credentials' });
     }
     req.logIn(user, (err) => {
       if (err) {
+        console.error('Login error:', err);
         return res.status(500).json({ error: 'Login failed' });
       }
+      console.log('Login successful:', user.username, user.role);
       return res.json({ success: true, user: { id: user._id, username: user.username, email: user.email, role: user.role } });
     });
   })(req, res, next);
@@ -46,6 +52,11 @@ router.post('/register', async (req, res) => {
   try {
     const { username, email, password, firstName, lastName } = req.body;
     
+    // Validate required fields
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email, and password are required' });
+    }
+    
     // Check if user exists
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
@@ -57,8 +68,8 @@ router.post('/register', async (req, res) => {
       username,
       email,
       password,
-      firstName,
-      lastName,
+      firstName: firstName || '',
+      lastName: lastName || '',
       role: 'user'
     });
     
@@ -67,13 +78,21 @@ router.post('/register', async (req, res) => {
     // Auto login after registration
     req.logIn(user, (err) => {
       if (err) {
+        console.error('Login after registration failed:', err);
         return res.status(500).json({ error: 'Registration successful but login failed' });
       }
       res.json({ success: true, user: { id: user._id, username: user.username, email: user.email, role: user.role } });
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Registration failed' });
+    console.error('Registration error:', err);
+    if (err.name === 'ValidationError') {
+      const messages = Object.values(err.errors).map(e => e.message);
+      return res.status(400).json({ error: messages.join(', ') });
+    }
+    if (err.code === 11000) {
+      return res.status(400).json({ error: 'Username or email already exists' });
+    }
+    res.status(500).json({ error: 'Registration failed: ' + err.message });
   }
 });
 
