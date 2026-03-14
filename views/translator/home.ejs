@@ -139,6 +139,16 @@
             <div class="gloss-chips" id="gloss-chips"></div>
           </div>
 
+          <!-- Edit Memory Bar (User Translations) -->
+          <div class="memory-bar" id="memory-bar" style="display:none;">
+            <div class="memory-bar-left">
+              <i data-lucide="brain" style="width:14px;height:14px;"></i>
+              <span class="memory-bar-label">Memory</span>
+              <span class="memory-bar-count" id="memory-bar-count">0</span>
+            </div>
+            <div class="memory-chips" id="memory-chips"></div>
+          </div>
+
           <!-- Terms Drawer -->
           <div class="terms-drawer" id="terms-drawer" style="display:none;">
             <div class="drawer-header" id="drawer-header">
@@ -208,6 +218,47 @@
     </div>
   </div>
 
+  <!-- Login Suggestion Modal -->
+  <div class="modal-backdrop" id="login-modal-backdrop" onclick="Modal.close('login-modal')"></div>
+  <div class="modal" id="login-modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h3 class="modal-title" style="display:flex;align-items:center;gap:8px;"><i data-lucide="shield-alert" style="color:var(--gold-400);"></i> Login Required</h3>
+      <button class="modal-close" onclick="Modal.close('login-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-secondary);font-size:14px;line-height:1.5;margin:0 0 16px;">
+        You must be logged in to save your translation history and use the personal edits memory system.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Modal.close('login-modal')">Continue as Guest</button>
+      <a href="/accounts/login" class="btn btn-primary">Login Now</a>
+    </div>
+  </div>
+
+  <!-- Inline Edit Popover -->
+  <div class="edit-popover" id="edit-popover">
+    <div class="edit-popover-header">
+      <div class="edit-popover-title">
+        <i data-lucide="edit-3"></i> Edit <span id="po-source-word" style="color:var(--text-primary);text-transform:none;letter-spacing:normal;"></span>
+      </div>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="closeEditPopover()" style="width:20px;height:20px;"><i data-lucide="x"></i></button>
+    </div>
+    <div>
+      <input type="text" id="po-target-input" placeholder="Enter translation..." autocomplete="off">
+    </div>
+    <div class="edit-popover-saved" id="po-saved-area" style="display:none;">
+      <span>Saved: <b id="po-saved-word"></b></span>
+      <button class="btn btn-ghost btn-sm" onclick="applySavedEdit()" style="font-size:10px;padding:2px 6px;">Use</button>
+    </div>
+    <div class="edit-popover-actions">
+      <button class="btn btn-primary btn-sm" onclick="saveUserEdit()" style="padding:4px 12px;font-size:11px;">Save</button>
+    </div>
+    <input type="hidden" id="po-word-idx">
+    <input type="hidden" id="po-target-lang">
+    <input type="hidden" id="po-google-translation">
+  </div>
+
   <script src="/js/app.js?v=2"></script>
   <script>
     lucide.createIcons();
@@ -219,7 +270,9 @@
     var activeTargets = ['ar'];
     var DEBOUNCE = 600;
     var lastTranslations = {};
-    var chipStates = {};
+    var chipStates = {}; // For Glossary
+    var userEditsState = {}; // Array of edits from API
+    var memoryChipStates = {}; // Local toggle states for User Edits: editId -> boolean
     var currentSessionId = null;
     var autoSaveTimer = null;
     var currentTerms = [];
@@ -403,6 +456,7 @@
       if (!srcText.value.trim()) {
         document.querySelectorAll('.translate-output').forEach(function(el) { el.innerHTML = '<span class="placeholder-text">Translation...</span>'; });
         lastTranslations = {}; chipStates = {}; renderChips([]);
+        userEditsState = {}; memoryChipStates = {}; renderMemoryChips([]);
         sourceHighlights.innerHTML = '';
         ghostOverlay.innerHTML = ''; currentGhostSuggestion = '';
         return;
@@ -441,6 +495,10 @@
           disabled_terms: disabledTerms
         })
       }).then(function(res) {
+        console.log('[DEBUG][doTranslate] API response received');
+        console.log('[DEBUG][doTranslate] Translation keys:', Object.keys(res.translations || {}));
+        console.log('[DEBUG][doTranslate] userEdits count:', (res.userEdits || []).length);
+        
         lastTranslations = res.translations || {};
         var allSegs = [], seenIds = {};
         for (var code in lastTranslations) {
@@ -453,11 +511,23 @@
             }
           }
         }
+        
+        // userEditsState is a FLAT ARRAY of edits from the API, each with { editId, sourceWord, targetLanguage, googleTranslation, userTranslation }
+        userEditsState = res.userEdits || [];
+        console.log('[DEBUG][doTranslate] userEditsState updated:', JSON.stringify(userEditsState.map(function(e) { return { id: e.editId, src: e.sourceWord, tgt: e.userTranslation, lang: e.targetLanguage }; })));
+        
+        userEditsState.forEach(function(edit) {
+          if (!(edit.editId in memoryChipStates)) memoryChipStates[edit.editId] = true;
+        });
+
         renderChips(allSegs);
+        renderMemoryChips(userEditsState);
         rerenderAllOutputs();
         autoSave();
-      }).catch(function(e) { Toast.error(e.message || 'Translation failed.'); })
-        .finally(function() {
+      }).catch(function(e) {
+        console.error('[DEBUG][doTranslate] Error:', e.message);
+        Toast.error(e.message || 'Translation failed.');
+      }).finally(function() {
           activeTargets.forEach(function(c) {
             var ld = document.getElementById('loading-' + c); if (ld) ld.style.display = 'none';
             var out = document.getElementById('output-' + c); if (out) out.style.opacity = '1';
@@ -465,34 +535,307 @@
         });
     }
 
+    // Helper: try to find the source word for a given target word by checking the source text
+    function findSourceWordForTarget(targetWord, code) {
+      // The source text is in srcText.value. We need to figure out which source word 
+      // produced this particular target word. Since we have the full source text and don't have 
+      // a word-level alignment, we'll use a heuristic: try translating each source word individually
+      // and match. But that's expensive. Instead, we provide the target word itself as fallback
+      // and set the source word to the first word in the source text that starts with similar letters.
+      // Better approach: just use the target word as the source_word identifier for the popover.
+      // The USER will see which word they're editing.
+      return targetWord;
+    }
+
     function rerenderAllOutputs() {
+      console.log('[DEBUG][rerender] ──── RERENDER START ────');
+      console.log('[DEBUG][rerender] lastTranslations keys:', Object.keys(lastTranslations || {}));
+      console.log('[DEBUG][rerender] userEditsState (flat array):', JSON.stringify((userEditsState || []).map(function(e) { return { id: e.editId, src: e.sourceWord, google: e.googleTranslation, user: e.userTranslation, lang: e.targetLanguage }; })));
+      console.log('[DEBUG][rerender] memoryChipStates:', JSON.stringify(memoryChipStates));
+      
       if (!lastTranslations) return;
       for (var code in lastTranslations) {
         if (code === 'undefined' || !code) continue;
         var data = lastTranslations[code];
         var out = document.getElementById('output-' + code);
         if (!out || !data) continue;
-        var html = escapeHtml(data.full_translation || '');
-        if (data.segments && useGlossary) {
-          for (var i = 0; i < data.segments.length; i++) {
-            var seg = data.segments[i];
-            if (seg && seg.is_glossary && chipStates[seg.term_id] !== false) {
-              var termForLang = seg['term_' + code] || seg.translation || '';
-              if (termForLang) {
-                var escaped = escapeHtml(termForLang);
-                var re = new RegExp('(' + escapeRegex(escaped) + ')', 'gi');
-                html = html.replace(re, '<span class="glossary-word" title="Glossary: ' + escapeHtml(seg.source) + '">$1</span>');
+        
+        var wordsArray = (data.full_translation || '').split(/(\s+)/);
+        var htmlParts = [];
+        
+        // userEditsState is a FLAT ARRAY — filter by targetLanguage for the current panel
+        var langEdits = (userEditsState || []).filter(function(e) { return e.targetLanguage === code; });
+        console.log('[DEBUG][rerender] Panel ' + code + ': langEdits count:', langEdits.length);
+        langEdits.forEach(function(e) {
+          console.log('[DEBUG][rerender]   Edit: src="' + e.sourceWord + '" google="' + e.googleTranslation + '" user="' + e.userTranslation + '" chipOn:', memoryChipStates[e.editId]);
+        });
+        
+        for (var wIdx = 0; wIdx < wordsArray.length; wIdx++) {
+          var wordToken = wordsArray[wIdx];
+          if (!wordToken.trim()) {
+            // It's whitespace
+            htmlParts.push(wordToken.replace(/\n/g, '<br>'));
+            continue;
+          }
+          
+          var cleanWord = wordToken.replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,"").toLowerCase();
+          
+          // Check against Glossary first
+          var isGlossary = false;
+          var glossTermSrc = '';
+          if (data.segments && useGlossary) {
+            for (var i = 0; i < data.segments.length; i++) {
+              var seg = data.segments[i];
+              if (seg && seg.is_glossary && chipStates[seg.term_id] !== false) {
+                var termForLang = (seg['term_' + code] || seg.translation || '').toLowerCase();
+                if (cleanWord === termForLang) {
+                  isGlossary = true;
+                  glossTermSrc = seg.source;
+                  break;
+                }
               }
             }
           }
+          
+          if (isGlossary) {
+             htmlParts.push('<span class="glossary-word" title="Glossary: ' + escapeHtml(glossTermSrc) + '">' + escapeHtml(wordToken) + '</span>');
+             continue;
+          }
+          
+          // Check against User Edits — match by google translation word OR user-edited word
+          var matchedEdit = null;
+          for (var e = 0; e < langEdits.length; e++) {
+             var gWordLower = (langEdits[e].googleTranslation || '').replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,'').toLowerCase();
+             var uWordLower = (langEdits[e].userTranslation || '').replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,'').toLowerCase();
+             
+             if (gWordLower && cleanWord === gWordLower) {
+               matchedEdit = langEdits[e]; break;
+             }
+             if (uWordLower && cleanWord === uWordLower && memoryChipStates[langEdits[e].editId]) {
+               matchedEdit = langEdits[e]; break;
+             }
+          }
+          
+          var displayWord = wordToken;
+          var classes = ['tgt-word'];
+          // For data-source, always try to use the actual source word from the edit, 
+          // or fall back to mapping from source text
+          var sourceWordForAttr = matchedEdit ? matchedEdit.sourceWord : '';
+          var dataset = ' data-raw="' + escapeHtml(cleanWord) + '" data-lang="' + code + '" data-idx="' + wIdx + '"';
+          var titleAttr = '';
+          var dotHtml = '';
+          
+          if (matchedEdit) {
+            console.log('[DEBUG][rerender]   Word "' + cleanWord + '" MATCHED edit. src="' + matchedEdit.sourceWord + '" google="' + matchedEdit.googleTranslation + '" chipOn:', memoryChipStates[matchedEdit.editId]);
+            dataset += ' data-google="' + escapeHtml(matchedEdit.googleTranslation || cleanWord) + '"';
+            dataset += ' data-source="' + escapeHtml(matchedEdit.sourceWord) + '"';
+            classes.push('has-user-edit');
+            dotHtml = '<span class="memory-dot"></span>';
+            
+            if (memoryChipStates[matchedEdit.editId]) {
+              classes.push('is-user-edited');
+              // Replace this word with the user's preferred translation
+              var replaceRegex;
+              try { replaceRegex = new RegExp(escapeRegex(cleanWord), 'i'); } catch(re) { replaceRegex = cleanWord; }
+              displayWord = wordToken.replace(replaceRegex, matchedEdit.userTranslation);
+              console.log('[DEBUG][rerender]   Applied: "' + wordToken + '" → "' + displayWord + '"');
+              dataset += ' data-saved="' + escapeHtml(matchedEdit.userTranslation) + '"';
+              dataset += ' data-edit-id="' + matchedEdit.editId + '"';
+              titleAttr = ' title="Memory: Edit applied"';
+            } else {
+              dataset += ' data-saved="' + escapeHtml(matchedEdit.userTranslation) + '"';
+              dataset += ' data-edit-id="' + matchedEdit.editId + '"';
+              titleAttr = ' title="Memory: You have a saved edit for this"';
+            }
+          } else {
+             dataset += ' data-google="' + escapeHtml(cleanWord) + '"';
+             // Set data-source to the word itself — the popover will use this as the "what word is this in source"
+             dataset += ' data-source="' + escapeHtml(cleanWord) + '"';
+          }
+          
+          htmlParts.push('<span class="' + classes.join(' ') + '"' + dataset + titleAttr + ' onclick="openEditPopover(this)">' + escapeHtml(displayWord) + dotHtml + '</span>');
         }
-        html = html.replace(/\n/g, '<br>');
-        out.innerHTML = html;
+
+        out.innerHTML = htmlParts.join('');
         var cnt = document.getElementById('count-' + code);
         if (cnt) cnt.textContent = (data.full_translation || '').length;
       }
+      console.log('[DEBUG][rerender] ──── RERENDER DONE ────');
       lucide.createIcons();
     }
+
+    // --- Per-User Memory Front-End Logic ---
+    var memoryBar = document.getElementById('memory-bar');
+    var memoryChipsEl = document.getElementById('memory-chips');
+    var editPopover = document.getElementById('edit-popover');
+    var currentEditWordEl = null;
+
+    function renderMemoryChips(edits) {
+      if (!edits || !edits.length) {
+        memoryBar.style.display = 'none';
+        return;
+      }
+      memoryBar.style.display = 'flex';
+      document.getElementById('memory-bar-count').textContent = edits.length;
+      memoryChipsEl.innerHTML = edits.map(function(edit) {
+        var isOn = memoryChipStates[edit.editId] !== false;
+        return '<span class="m-chip' + (isOn ? '' : ' is-off') + '" onclick="toggleMemoryChip(\'' + edit.editId + '\', this)">'
+          + '<span class="m-chip-dot"></span>' + escapeHtml(edit.sourceWord) + ' \u2192 ' + escapeHtml(edit.userTranslation)
+          + '</span>';
+      }).join('');
+    }
+
+    window.toggleMemoryChip = function(editId, el) {
+      memoryChipStates[editId] = (memoryChipStates[editId] === false);
+      el.classList.toggle('is-off', !memoryChipStates[editId]);
+      rerenderAllOutputs(); 
+    };
+
+    window.openEditPopover = function(el) {
+      currentEditWordEl = el;
+      var rect = el.getBoundingClientRect();
+      var containerRect = document.querySelector('.translate-container').getBoundingClientRect();
+      
+      var editId = el.getAttribute('data-edit-id');
+      var googleWord = el.getAttribute('data-google');
+      var sourceAttr = el.getAttribute('data-source');
+      var savedWord = el.getAttribute('data-saved');
+      var targetLang = el.getAttribute('data-lang');
+      
+      // Determine the source word: 
+      // 1) If this word has a saved edit, use the edit's sourceWord (from data-source attr)
+      // 2) Otherwise, look at the raw clicked word — it's a target-language word.
+      //    We need to show the SOURCE language word. For now, use data-source which is set in rerender.
+      var sourceWord = sourceAttr || googleWord || el.textContent.trim();
+      
+      console.log('[DEBUG][popover] Opening for word:', el.textContent.trim());
+      console.log('[DEBUG][popover]   data-source:', sourceAttr);
+      console.log('[DEBUG][popover]   data-google:', googleWord);
+      console.log('[DEBUG][popover]   data-saved:', savedWord);
+      console.log('[DEBUG][popover]   data-edit-id:', editId);
+      console.log('[DEBUG][popover]   Resolved sourceWord:', sourceWord);
+      
+      document.getElementById('po-source-word').textContent = sourceWord;
+      document.getElementById('po-target-input').value = savedWord || googleWord || el.textContent.trim();
+      document.getElementById('po-target-lang').value = targetLang;
+      document.getElementById('po-google-translation').value = googleWord;
+      
+      var savedArea = document.getElementById('po-saved-area');
+      if (editId && savedWord) {
+        savedArea.style.display = 'flex';
+        document.getElementById('po-saved-word').textContent = savedWord;
+      } else {
+        savedArea.style.display = 'none';
+      }
+
+      editPopover.style.display = 'flex';
+      
+      // Calculate position relative to the container instead of screen
+      var topPos = (rect.bottom - containerRect.top) + window.scrollY;
+      var leftPos = (rect.left - containerRect.left) + (rect.width / 2);
+      
+      // Slight delay to allow display flex to render so offsetWidth works
+      setTimeout(function() {
+         editPopover.style.top = topPos + 'px';
+         editPopover.style.left = leftPos + 'px';
+         editPopover.classList.add('is-open');
+         document.getElementById('po-target-input').focus();
+      }, 10);
+      
+      // Stop event propagation so document click doesn't close it instantly
+      event.stopPropagation();
+    };
+
+    window.closeEditPopover = function() {
+      editPopover.classList.remove('is-open');
+      setTimeout(function() { editPopover.style.display = 'none'; }, 200);
+      currentEditWordEl = null;
+    };
+
+    window.saveUserEdit = function() {
+      if (!currentEditWordEl) return;
+      var newTranslation = document.getElementById('po-target-input').value.trim();
+      if (!newTranslation) {
+        closeEditPopover();
+        return;
+      }
+      
+      var sourceWord = document.getElementById('po-source-word').textContent;
+      var targetLang = document.getElementById('po-target-lang').value;
+      var originalGoogle = document.getElementById('po-google-translation').value;
+      
+      console.log('[DEBUG][saveUserEdit] ──── SAVING ────');
+      console.log('[DEBUG][saveUserEdit] sourceWord:', sourceWord);
+      console.log('[DEBUG][saveUserEdit] targetLang:', targetLang);
+      console.log('[DEBUG][saveUserEdit] originalGoogle:', originalGoogle);
+      console.log('[DEBUG][saveUserEdit] newTranslation:', newTranslation);
+      console.log('[DEBUG][saveUserEdit] currentSourceLang:', currentSourceLang);
+      
+      api('/api/user-edit', {
+        method: 'POST',
+        body: JSON.stringify({
+          source_word: sourceWord,
+          source_lang: currentSourceLang,
+          target_lang: targetLang,
+          original_translation: originalGoogle,
+          edited_translation: newTranslation
+        })
+      }).then(function(res) {
+         console.log('[DEBUG][saveUserEdit] API response:', JSON.stringify(res));
+         if (res.success && res.edit) {
+           Toast.success('Edit saved to memory');
+           
+           var eid = res.edit._id || res.edit.id || Date.now().toString();
+           
+           // userEditsState is a FLAT ARRAY. Remove any older edit for the same sourceWord+targetLang.
+           userEditsState = userEditsState.filter(function(e) {
+             return !(e.sourceWord === res.edit.sourceWord && e.targetLanguage === targetLang);
+           });
+           
+           // Add the newly saved edit to the flat array
+           userEditsState.push({
+             editId: eid,
+             sourceWord: res.edit.sourceWord,
+             targetLanguage: targetLang,
+             userTranslation: res.edit.editedTranslation,
+             googleTranslation: res.edit.originalTranslation || originalGoogle,
+             usageCount: res.edit.usageCount || 1
+           });
+           
+           console.log('[DEBUG][saveUserEdit] Updated userEditsState:', JSON.stringify(userEditsState.map(function(e) { return { src: e.sourceWord, user: e.userTranslation, lang: e.targetLanguage }; })));
+           
+           // Turn on the chip
+           memoryChipStates[eid] = true;
+           
+           renderMemoryChips(userEditsState);
+           rerenderAllOutputs();
+         }
+      }).catch(function(err) {
+         console.error('[DEBUG][saveUserEdit] Error:', err.message);
+         Toast.error('Failed to save edit: ' + err.message);
+      });
+      
+      closeEditPopover();
+    };
+    
+    window.applySavedEdit = function() {
+       if (!currentEditWordEl) return;
+       var savedWord = document.getElementById('po-saved-word').textContent;
+       document.getElementById('po-target-input').value = savedWord;
+       document.getElementById('po-target-input').focus();
+    };
+
+    document.getElementById('po-target-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') saveUserEdit();
+      if (e.key === 'Escape') closeEditPopover();
+    });
+
+    document.addEventListener('click', function(e) {
+      if (editPopover.classList.contains('is-open') && !editPopover.contains(e.target) && !e.target.classList.contains('tgt-word')) {
+        closeEditPopover();
+      }
+    });
+    // --- End Per-User Memory Logic ---
 
     function renderChips(segments) {
       var hasCategory = !!catSelect.value;
@@ -580,8 +923,11 @@
       document.getElementById('source-count').textContent = '0';
       clearBtn.style.opacity = '0';
       lastTranslations = {}; chipStates = {}; renderChips([]);
+      userEditsState = {}; memoryChipStates = {}; renderMemoryChips([]);
       sourceHighlights.innerHTML = '';
     });
+
+    var hasShownLoginModal = false;
 
     function autoSave() {
       clearTimeout(autoSaveTimer);
@@ -593,12 +939,44 @@
         if (!Object.keys(translations).length) return;
         var payload = { source_text: text, source_lang: currentSourceLang, translations: translations, category_id: catSelect.value || null };
         if (currentSessionId) payload.session_id = currentSessionId;
-        api('/api/save-session', { method: 'POST', body: JSON.stringify(payload) })
-          .then(function(res) {
-            if (res.session_id) currentSessionId = res.session_id;
+        
+        console.log('[DEBUG][autoSave] ──── AUTO SAVE ────');
+        console.log('[DEBUG][autoSave] Payload:', JSON.stringify({ text: text.substring(0, 30), langs: Object.keys(translations), session_id: currentSessionId || 'NEW' }));
+        
+        // Use raw fetch instead of api() wrapper because api() throws on non-200 responses
+        // and we need to handle 401 gracefully (show login modal, not error toast)
+        fetch('/api/save-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify(payload)
+        }).then(function(response) {
+          return response.json().then(function(data) {
+            console.log('[DEBUG][autoSave] Response status:', response.status, 'data:', JSON.stringify(data));
+            
+            if (response.status === 401 || data.requireLogin) {
+              console.log('[DEBUG][autoSave] Login required — showing modal');
+              if (!hasShownLoginModal) {
+                hasShownLoginModal = true;
+                Modal.open('login-modal');
+              }
+              return;
+            }
+            
+            if (!data.success) {
+              console.warn('[DEBUG][autoSave] Save failed:', data.error);
+              return;
+            }
+            
+            if (data.session_id) {
+              currentSessionId = data.session_id;
+              console.log('[DEBUG][autoSave] ✓ Session saved:', currentSessionId);
+            }
             autoSaveDot.style.display = 'inline-block';
             setTimeout(function() { autoSaveDot.style.display = 'none'; }, 2000);
-          }).catch(function() { });
+          });
+        }).catch(function(err) {
+          console.error('[DEBUG][autoSave] Network error:', err.message);
+        });
       }, 1500);
     }
 
@@ -609,6 +987,7 @@
       document.getElementById('source-count').textContent = '0';
       clearBtn.style.opacity = '0';
       lastTranslations = {}; chipStates = {}; renderChips([]);
+      userEditsState = {}; memoryChipStates = {}; renderMemoryChips([]);
       Toast.info('New conversation started.');
     });
 

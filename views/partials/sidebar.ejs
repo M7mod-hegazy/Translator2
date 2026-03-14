@@ -13,12 +13,14 @@
                 </span>
                 <span class="app-sidebar__text">Translate</span>
             </a>
+            <% if (typeof user !== 'undefined' && user) { %>
             <a href="/projects" class="app-sidebar__link <%= typeof activeTab !== 'undefined' && (activeTab === 'history' || activeTab === 'project') ? 'is-active' : '' %>">
                 <span class="app-sidebar__icon-wrap">
                     <i data-lucide="history" class="app-sidebar__icon" aria-hidden="true"></i>
                 </span>
                 <span class="app-sidebar__text">History</span>
             </a>
+            <% } %>
         </div>
 
         <div class="app-sidebar__group">

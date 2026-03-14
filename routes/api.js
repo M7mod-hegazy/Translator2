@@ -7,8 +7,10 @@ const GlossaryTerm = require('../models/GlossaryTerm');
 const GlossaryCategory = require('../models/GlossaryCategory');
 const TranslationMemory = require('../models/TranslationMemory');
 const TranslationSession = require('../models/TranslationSession');
+const UserTranslationEdit = require('../models/UserTranslationEdit');
 const Language = require('../models/Language');
-const { translateMultiTarget, translateDirect } = require('../utils/translateEngine');
+const { translateMultiTarget, translateDirect, mtWord } = require('../utils/translateEngine');
+const { ensureAuth } = require('../middleware/auth');
 
 // Speech-to-text using Groq Whisper (free tier)
 router.post('/speech-to-text', async (req, res) => {
@@ -84,7 +86,11 @@ router.post('/translate', async (req, res) => {
   try {
     const { text, source_lang, target_langs, category_id, use_glossary, disabled_terms } = req.body;
     
-    console.log('[Translate API] Request:', { text: text?.substring(0, 50), source_lang, target_langs, category_id });
+    console.log('[Translate API] ──── NEW REQUEST ────');
+    console.log('[Translate API] Text:', JSON.stringify(text?.substring(0, 80)));
+    console.log('[Translate API] Source:', source_lang, '→ Targets:', target_langs);
+    console.log('[Translate API] Category:', category_id, 'Glossary:', use_glossary);
+    console.log('[Translate API] Auth:', req.isAuthenticated ? req.isAuthenticated() : false, 'User:', req.user?._id);
     
     if (!text || !text.trim()) {
       return res.json({ success: true, translations: {} });
@@ -100,10 +106,61 @@ router.post('/translate', async (req, res) => {
       disabledTerms: disabled_terms || []
     });
     
-    console.log('[Translate API] Success, keys:', Object.keys(results));
-    res.json({ success: true, translations: results });
+    // Look up user's saved edits if authenticated
+    let userEdits = [];
+    if (req.isAuthenticated && req.isAuthenticated()) {
+      try {
+        console.log('[Translate API] Looking up user edits for user:', req.user._id);
+        const savedEdits = await UserTranslationEdit.find({
+          user: req.user._id,
+          sourceLanguage: source_lang || 'en',
+          targetLanguage: { $in: target_langs }
+        }).sort({ usageCount: -1, lastUsedAt: -1 });
+        
+        console.log('[Translate API] Found', savedEdits.length, 'saved edits in DB');
+        savedEdits.forEach(e => console.log('[Translate API]   DB Edit:', e.sourceWord, '→', e.editedTranslation, '(original:', e.originalTranslation, ') lang:', e.targetLanguage));
+        
+        if (savedEdits.length) {
+          const textLower = text.toLowerCase();
+          for (const edit of savedEdits) {
+            const srcLower = edit.sourceWord.toLowerCase();
+            const found = textLower.includes(srcLower);
+            console.log('[Translate API]   Checking if source text contains "' + edit.sourceWord + '":', found);
+            if (found) {
+              // Get what Google currently translates this word to
+              let googleWord = edit.originalTranslation || '';
+              if (!googleWord) {
+                try {
+                  googleWord = await mtWord(edit.sourceWord, edit.sourceLanguage, edit.targetLanguage);
+                  console.log('[Translate API]   MT lookup for "' + edit.sourceWord + '" →', googleWord);
+                } catch (e) { googleWord = ''; }
+              }
+              userEdits.push({
+                editId: edit._id,
+                sourceWord: edit.sourceWord,
+                targetLanguage: edit.targetLanguage,
+                googleTranslation: googleWord,
+                userTranslation: edit.editedTranslation,
+                usageCount: edit.usageCount
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[Translate API] User edit lookup error:', e.message, e.stack);
+      }
+    } else {
+      console.log('[Translate API] User NOT authenticated — skipping edit lookup');
+    }
+    
+    console.log('[Translate API] ──── RESPONSE ────');
+    console.log('[Translate API] Translation keys:', Object.keys(results));
+    console.log('[Translate API] UserEdits returned:', userEdits.length);
+    userEdits.forEach(e => console.log('[Translate API]   Return Edit:', e.sourceWord, '→', e.userTranslation, '(google:', e.googleTranslation, ')'));
+    
+    res.json({ success: true, translations: results, userEdits });
   } catch (err) {
-    console.error('[Translate API] Error:', err.message, err.stack);
+    console.error('[Translate API] FATAL Error:', err.message, err.stack);
     res.status(400).json({ success: false, error: err.message });
   }
 });
@@ -180,52 +237,92 @@ router.get('/category-terms', async (req, res) => {
 // POST /api/save-session - Save or update a translation session
 router.post('/save-session', async (req, res) => {
   try {
+    console.log('[save-session] ──── SAVE REQUEST ────');
+    console.log('[save-session] Auth:', req.isAuthenticated ? req.isAuthenticated() : false);
+    console.log('[save-session] User:', req.user?._id, req.user?.email);
+    
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      console.log('[save-session] ✗ NOT AUTHENTICATED — returning 401');
+      return res.status(401).json({ success: false, requireLogin: true, error: 'Login required to save history and track edits.' });
+    }
+
     const { source_text, source_lang, translations, category_id, session_id, title } = req.body;
     
+    console.log('[save-session] Payload:', {
+      source_text: source_text?.substring(0, 50),
+      source_lang,
+      translations: translations ? Object.keys(translations) : 'none',
+      category_id,
+      session_id: session_id || 'NEW',
+      title: title || 'auto'
+    });
+    
     if (!source_text || !source_text.trim()) {
+      console.log('[save-session] ✗ No source text');
       return res.status(400).json({ success: false, error: 'No text to save.' });
     }
     
     const srcLang = await Language.findOne({ code: source_lang || 'en' });
     if (!srcLang) {
+      console.log('[save-session] ✗ Language not found for code:', source_lang);
       return res.status(400).json({ success: false, error: 'Invalid source language.' });
     }
+    console.log('[save-session] Source language resolved:', srcLang.code, srcLang._id);
     
     const sessionTitle = title || source_text.split('\n')[0].substring(0, 80);
     
+    // Build translations Map from the provided object
+    const translationsMap = new Map();
+    if (translations && typeof translations === 'object') {
+      for (const [langCode, text] of Object.entries(translations)) {
+        if (text) translationsMap.set(langCode, text);
+      }
+    }
+    console.log('[save-session] Translations map entries:', [...translationsMap.keys()]);
+    
     // Update existing session
     if (session_id) {
-      const session = await TranslationSession.findById(session_id);
+      console.log('[save-session] Trying to update existing session:', session_id);
+      const session = await TranslationSession.findOne({ _id: session_id, createdBy: req.user._id });
       if (session) {
         session.title = sessionTitle;
         session.sourceText = source_text;
         session.sourceLanguage = srcLang._id;
-        session.translations = translations || {};
+        session.translations = translationsMap;
         session.category = category_id || null;
         await session.save();
+        console.log('[save-session] ✓ Updated existing session:', session._id);
         return res.json({ success: true, session_id: session._id, title: session.title });
+      } else {
+        console.log('[save-session] Session not found or not owned, will create new');
       }
     }
     
     // Create new session
+    console.log('[save-session] Creating new session...');
     const session = await TranslationSession.create({
       title: sessionTitle,
       sourceText: source_text,
       sourceLanguage: srcLang._id,
-      translations: translations || {},
-      category: category_id || null
+      translations: translationsMap,
+      category: category_id || null,
+      createdBy: req.user._id
     });
+    console.log('[save-session] ✓ Created session:', session._id, 'title:', session.title);
     
-    // Enforce MAX_SESSIONS cap (100)
+    // Enforce MAX_SESSIONS cap (100) per user
     const MAX_SESSIONS = 100;
-    const allSessions = await TranslationSession.find().sort({ updatedAt: -1 });
+    const allSessions = await TranslationSession.find({ createdBy: req.user._id }).sort({ updatedAt: -1 });
+    console.log('[save-session] Total sessions for user:', allSessions.length);
     if (allSessions.length > MAX_SESSIONS) {
       const excessIds = allSessions.slice(MAX_SESSIONS).map(s => s._id);
       await TranslationSession.deleteMany({ _id: { $in: excessIds } });
+      console.log('[save-session] Pruned', excessIds.length, 'old sessions');
     }
     
     res.json({ success: true, session_id: session._id, title: session.title });
   } catch (err) {
+    console.error('[save-session] ✗ ERROR:', err.message, err.stack);
     res.status(400).json({ success: false, error: err.message });
   }
 });
@@ -390,6 +487,141 @@ router.post('/tm', async (req, res) => {
     res.json(tm);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── User Translation Edits (Per-User Memory) ──
+
+// POST /api/user-edit — Save or update a user's word edit
+router.post('/user-edit', ensureAuth, async (req, res) => {
+  try {
+    const { source_word, source_lang, target_lang, original_translation, edited_translation } = req.body;
+    
+    console.log('[user-edit] ──── SAVE EDIT ────');
+    console.log('[user-edit] User:', req.user._id);
+    console.log('[user-edit] source_word:', JSON.stringify(source_word));
+    console.log('[user-edit] source_lang:', source_lang, '→ target_lang:', target_lang);
+    console.log('[user-edit] original_translation:', JSON.stringify(original_translation));
+    console.log('[user-edit] edited_translation:', JSON.stringify(edited_translation));
+    
+    if (!source_word || !edited_translation || !source_lang || !target_lang) {
+      console.log('[user-edit] ✗ Missing fields:', { source_word: !!source_word, edited_translation: !!edited_translation, source_lang: !!source_lang, target_lang: !!target_lang });
+      return res.status(400).json({ success: false, error: 'Missing required fields.' });
+    }
+    
+    const filter = {
+      user: req.user._id,
+      sourceWord: source_word.trim(),
+      sourceLanguage: source_lang,
+      targetLanguage: target_lang
+    };
+    console.log('[user-edit] Filter:', JSON.stringify(filter));
+    
+    const existing = await UserTranslationEdit.findOne(filter);
+    console.log('[user-edit] Existing record:', existing ? existing._id : 'NONE');
+    
+    if (existing) {
+      existing.originalTranslation = original_translation || existing.originalTranslation;
+      existing.editedTranslation = edited_translation.trim();
+      existing.usageCount += 1;
+      existing.lastUsedAt = new Date();
+      await existing.save();
+      console.log('[user-edit] ✓ Updated existing:', existing._id, 'usageCount:', existing.usageCount);
+      return res.json({ success: true, edit: existing, updated: true });
+    }
+    
+    const edit = await UserTranslationEdit.create({
+      user: req.user._id,
+      sourceWord: source_word.trim(),
+      sourceLanguage: source_lang,
+      originalTranslation: (original_translation || '').trim(),
+      editedTranslation: edited_translation.trim(),
+      targetLanguage: target_lang,
+      lastUsedAt: new Date()
+    });
+    
+    console.log('[user-edit] ✓ Created new:', edit._id);
+    res.json({ success: true, edit, created: true });
+  } catch (err) {
+    console.error('[user-edit] ✗ ERROR:', err.message, err.stack);
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/user-edits/match — Find saved edits that match source text
+router.get('/user-edits/match', ensureAuth, async (req, res) => {
+  try {
+    const { text, source_lang, target_lang } = req.query;
+    
+    if (!text || !source_lang || !target_lang) {
+      return res.json({ success: true, edits: [] });
+    }
+    
+    const savedEdits = await UserTranslationEdit.find({
+      user: req.user._id,
+      sourceLanguage: source_lang,
+      targetLanguage: target_lang
+    }).sort({ usageCount: -1, lastUsedAt: -1 });
+    
+    const textLower = text.toLowerCase();
+    const matches = [];
+    
+    for (const edit of savedEdits) {
+      if (textLower.includes(edit.sourceWord.toLowerCase())) {
+        matches.push({
+          editId: edit._id,
+          sourceWord: edit.sourceWord,
+          originalTranslation: edit.originalTranslation,
+          editedTranslation: edit.editedTranslation,
+          usageCount: edit.usageCount
+        });
+      }
+    }
+    
+    res.json({ success: true, edits: matches });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+// GET /api/user-edits — List all of user's saved edits (paginated)
+router.get('/user-edits', ensureAuth, async (req, res) => {
+  try {
+    const { source_lang, target_lang, page = 1, limit = 50 } = req.query;
+    
+    const filter = { user: req.user._id };
+    if (source_lang) filter.sourceLanguage = source_lang;
+    if (target_lang) filter.targetLanguage = target_lang;
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const edits = await UserTranslationEdit.find(filter)
+      .sort({ lastUsedAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const total = await UserTranslationEdit.countDocuments(filter);
+    
+    res.json({ success: true, edits, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+// DELETE /api/user-edit/:id — Delete a saved edit
+router.delete('/user-edit/:id', ensureAuth, async (req, res) => {
+  try {
+    const edit = await UserTranslationEdit.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user._id
+    });
+    
+    if (!edit) {
+      return res.status(404).json({ success: false, error: 'Edit not found.' });
+    }
+    
+    res.json({ success: true, deleted: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 });
 

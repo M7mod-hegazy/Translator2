@@ -28,7 +28,7 @@
     .history-count { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 
     /* Grid */
-    .sessions-grid { display: grid; grid-template-columns: repeat(auto-fill ; gap: var(--space-md); }
+    .sessions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-md); }
 
     /* Card */
     .session-card { background: var(--bg-card); border: 1px solid rgba(212,175,55,0.08); border-radius: var(--radius-lg); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; cursor: pointer; transition: all .3s cubic-bezier(.4,0,.2,1); animation: cardIn .45s var(--ease-out) both; position: relative; }
@@ -64,6 +64,12 @@
     .card-meta-dot { color: rgba(212,175,55,0.2); }
     .card-langs { display: flex; gap: 3px; flex-wrap: wrap; }
     .card-lang-pill { padding: 2px 7px; font-size: 9px; font-weight: 700; text-transform: uppercase; border-radius: var(--radius-pill); background: rgba(212,175,55,0.08); color: var(--gold-400); border: 1px solid rgba(212,175,55,0.12); letter-spacing: .3px; }
+
+    /* Applied Edits Chips */
+    .card-edits { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 0; padding-top: 8px; border-top: 1px dashed rgba(212,175,55,0.1); }
+    .card-edits-label { font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .card-edit-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; background: rgba(138, 43, 226, 0.1); color: #b388ff; border: 1px solid rgba(138, 43, 226, 0.2); border-radius: 4px; padding: 2px 6px; }
+    .card-edit-chip i { width: 10px; height: 10px; }
 
     mark.hl { background: rgba(212,175,55,0.3); color: var(--text-primary); border-radius: 2px; padding: 0 1px; }
 
@@ -150,6 +156,8 @@
       .card-meta-item i { display: none; }
       .card-langs { gap: 2px; }
       .card-lang-pill { font-size: 7px; padding: 1px 4px; }
+      .card-edits { margin-top: 6px; padding-top: 6px; }
+      .card-edit-chip { font-size: 8px; padding: 1px 4px; }
       .pagination-nav { gap: 4px; flex-wrap: wrap; }
       .pg-btn { padding: 6px 10px; font-size: 11px; }
     }
@@ -209,6 +217,17 @@
             <p class="card-source"><%= (s.sourceText || '').substring(0, 120) %><%= (s.sourceText || '').length > 120 ? '…' : '' %></p>
             <% var trans = s.translations || {}; var codes = Object.keys(trans); if (codes.length) { var firstCode = codes[0]; %>
             <p class="card-translation"><span class="card-trans-label"><%= firstCode.toUpperCase() %></span> <%= (trans[firstCode] || '').substring(0, 90) %><%= (trans[firstCode] || '').length > 90 ? '…' : '' %></p>
+            <% } %>
+            <% if (s.appliedEdits && s.appliedEdits.length > 0) { %>
+            <div class="card-edits">
+              <span class="card-edits-label">CAT Edits:</span>
+              <% s.appliedEdits.forEach(function(edit) { %>
+              <span class="card-edit-chip" title="User Translation Edit">
+                <i data-lucide="brain-circuit"></i>
+                <%= edit.sourceWord %> &rarr; <%= edit.userTranslation %>
+              </span>
+              <% }); %>
+            </div>
             <% } %>
           </div>
           <div class="card-bottom">
@@ -335,6 +354,13 @@
             var firstCode = '';
             if (r.trans_preview) { firstTrans = r.trans_preview; firstCode = r.lang_codes && r.lang_codes[0] ? r.lang_codes[0] : ''; }
             var langPills = (r.lang_codes || []).map(function(c) { return '<span class="card-lang-pill">' + esc(c) + '</span>'; }).join('');
+            
+            var editsHtml = '';
+            if (r.appliedEdits && r.appliedEdits.length > 0) {
+              editsHtml = '<div class="card-edits"><span class="card-edits-label">CAT Edits:</span>' + r.appliedEdits.map(function(edit) {
+                return '<span class="card-edit-chip" title="User Translation Edit"><i data-lucide="brain-circuit"></i> ' + esc(edit.sourceWord) + ' &rarr; ' + esc(edit.userTranslation) + '</span>';
+              }).join('') + '</div>';
+            }
 
             return '<div class="session-card" data-id="' + r.id + '" onclick="heroExpand(' + r.id + ',this)">'
               + '<div class="card-top">'
@@ -345,6 +371,7 @@
               + '</div></div>'
               + '<p class="card-source">' + hl(trunc(r.preview, 120), q) + '</p>'
               + (firstTrans ? '<p class="card-translation"><span class="card-trans-label">' + esc(firstCode.toUpperCase()) + '</span>' + hl(trunc(firstTrans, 90), q) + '</p>' : '')
+              + editsHtml
               + '</div>'
               + '<div class="card-bottom">'
               + '<div class="card-meta">'

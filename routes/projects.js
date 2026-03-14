@@ -5,6 +5,8 @@ const Document = require('../models/Document');
 const Segment = require('../models/Segment');
 const Language = require('../models/Language');
 const TranslationSession = require('../models/TranslationSession');
+const UserTranslationEdit = require('../models/UserTranslationEdit');
+const { ensureAuth } = require('../middleware/auth');
 
 const MAX_SESSIONS = 100;
 const SESSIONS_PER_PAGE = 15;
@@ -12,20 +14,13 @@ const SESSIONS_PER_PAGE = 15;
 // ── History (Translation Sessions) ──
 
 // Project list (History page with pagination)
-router.get('/', async (req, res) => {
+router.get('/', ensureAuth, async (req, res) => {
   try {
     const query = (req.query.q || '').trim();
     const page = parseInt(req.query.page) || 1;
     
     let filter = {};
-    
-    // If user is logged in, show only their sessions
-    if (req.user) {
-      filter.createdBy = req.user._id;
-    } else {
-      // Show sessions without createdBy for non-logged-in users (legacy)
-      filter.createdBy = { $exists: false };
-    }
+    filter.createdBy = req.user._id;
     
     if (query) {
       const regex = new RegExp(query, 'i');
@@ -42,6 +37,11 @@ router.get('/', async (req, res) => {
       .populate('sourceLanguage');
     
     // Add computed fields for display
+    let userEdits = [];
+    if (req.user) {
+      userEdits = await UserTranslationEdit.find({ user: req.user._id });
+    }
+
     const sessionsWithMeta = sessions.map(s => {
       const obj = s.toObject ? s.toObject() : s;
       obj.wordCount = obj.sourceText ? obj.sourceText.split(/\s+/).length : 0;
@@ -54,6 +54,32 @@ router.get('/', async (req, res) => {
       else if (hours < 24) obj.timeAgo = hours + 'h ago';
       else if (days < 7) obj.timeAgo = days + 'd ago';
       else obj.timeAgo = new Date(obj.updatedAt).toLocaleDateString();
+      
+      // Ensure translations is a plain object (Mongoose Map → Object)
+      if (obj.translations instanceof Map) {
+        const plain = {};
+        obj.translations.forEach((val, key) => { plain[key] = val; });
+        obj.translations = plain;
+      } else if (!obj.translations) {
+        obj.translations = {};
+      }
+      
+      // Determine what edits applied to this session
+      obj.appliedEdits = [];
+      if (userEdits.length > 0 && obj.sourceText) {
+        const srcLower = obj.sourceText.toLowerCase();
+        userEdits.forEach(edit => {
+          if (edit.sourceWord && srcLower.includes(edit.sourceWord.toLowerCase())) {
+            // Check if the target language matches one of the translations
+            const hasTranslation = obj.translations[edit.targetLanguage] || 
+              (typeof obj.translations.get === 'function' && obj.translations.get(edit.targetLanguage));
+            if (hasTranslation) {
+              obj.appliedEdits.push(edit);
+            }
+          }
+        });
+      }
+      
       return obj;
     });
     
@@ -83,7 +109,7 @@ router.get('/', async (req, res) => {
 });
 
 // Search sessions (AJAX)
-router.get('/search', async (req, res) => {
+router.get('/search', ensureAuth, async (req, res) => {
   try {
     const query = (req.query.q || '').trim();
     
@@ -92,13 +118,7 @@ router.get('/search', async (req, res) => {
     }
     
     let filter = {};
-    
-    // If user is logged in, search only their sessions
-    if (req.user) {
-      filter.createdBy = req.user._id;
-    } else {
-      filter.createdBy = { $exists: false };
-    }
+    filter.createdBy = req.user._id;
     
     const regex = new RegExp(query, 'i');
     filter.$or = [
@@ -111,15 +131,34 @@ router.get('/search', async (req, res) => {
       .limit(20)
       .populate('sourceLanguage');
     
+    let userEdits = [];
+    if (req.user) {
+      userEdits = await UserTranslationEdit.find({ user: req.user._id });
+    }
+
     const results = sessions.map(s => {
       let transPreview = '';
-      if (s.translations) {
-        for (const [code, text] of Object.entries(s.translations)) {
-          if (text) {
-            transPreview = text.substring(0, 100);
-            break;
-          }
+      // Handle Mongoose Map
+      const translations = s.translations instanceof Map 
+        ? Object.fromEntries(s.translations)
+        : (s.translations || {});
+      for (const [code, text] of Object.entries(translations)) {
+        if (text) {
+          transPreview = text.substring(0, 100);
+          break;
         }
+      }
+      
+      let appliedEdits = [];
+      if (userEdits.length > 0 && s.sourceText) {
+        const srcLower = s.sourceText.toLowerCase();
+        userEdits.forEach(edit => {
+          if (edit.sourceWord && srcLower.includes(edit.sourceWord.toLowerCase())) {
+            if (translations[edit.targetLanguage]) {
+              appliedEdits.push({ sourceWord: edit.sourceWord, userTranslation: edit.userTranslation });
+            }
+          }
+        });
       }
       
       return {
@@ -129,7 +168,8 @@ router.get('/search', async (req, res) => {
         trans_preview: transPreview,
         source_lang: s.sourceLanguage?.name || '',
         word_count: s.wordCount || 0,
-        lang_codes: s.translations ? Object.keys(s.translations) : []
+        lang_codes: Object.keys(translations),
+        appliedEdits: appliedEdits
       };
     });
     
@@ -169,6 +209,11 @@ router.get('/session/:id', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Session not found' });
     }
     
+    // Convert translations Map to plain object
+    const translations = session.translations instanceof Map
+      ? Object.fromEntries(session.translations)
+      : (session.translations || {});
+    
     res.json({
       success: true,
       session: {
@@ -176,7 +221,7 @@ router.get('/session/:id', async (req, res) => {
         title: session.title,
         source_text: session.sourceText,
         source_lang: session.sourceLanguage?.code || 'en',
-        translations: session.translations || {},
+        translations: translations,
         category_id: session.category
       }
     });
