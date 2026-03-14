@@ -10,7 +10,31 @@ const TranslationSession = require('../models/TranslationSession');
 const UserTranslationEdit = require('../models/UserTranslationEdit');
 const Language = require('../models/Language');
 const { translateMultiTarget, translateDirect, mtWord } = require('../utils/translateEngine');
+const { isRecentMemoryEntry } = require('../utils/translationSourceSelector');
+const { buildHybridTranslation } = require('../utils/hybridMemoryEngine');
 const { ensureAuth } = require('../middleware/auth');
+
+function normalizeLookup(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    .replace(/[إأآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ي')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function textIncludesNormalized(text, term) {
+  const normalizedText = normalizeLookup(text);
+  const normalizedTerm = normalizeLookup(term);
+  if (!normalizedText || !normalizedTerm) return false;
+  return normalizedText.includes(normalizedTerm);
+}
 
 // Speech-to-text using Groq Whisper (free tier)
 router.post('/speech-to-text', async (req, res) => {
@@ -105,8 +129,12 @@ router.post('/reverse-word', async (req, res) => {
     let bestMatch = reversedWord || target_word;
     
     if (source_text && reversedWord) {
-      const sourceWords = source_text.split(/\s+/).map(w => w.replace(/[.,!?;:()]/g, ''));
+      const sourceWords = source_text
+        .split(/\s+/)
+        .map(w => w.replace(/[^\p{L}\p{N}]/gu, ''))
+        .filter(Boolean);
       const reversedLower = reversedWord.toLowerCase();
+      const reversedNormalized = normalizeLookup(reversedWord);
       
       // Try exact match first
       let found = sourceWords.find(w => w.toLowerCase() === reversedLower);
@@ -121,6 +149,10 @@ router.post('/reverse-word', async (req, res) => {
         found = sourceWords.find(w => reversedLower.includes(w.toLowerCase()) || w.toLowerCase().includes(reversedLower));
       }
       
+      if (!found && reversedNormalized) {
+        found = sourceWords.find(w => normalizeLookup(w) === reversedNormalized);
+      }
+      
       if (found) {
         bestMatch = found;
         console.log('[reverse-word] Matched source word:', found);
@@ -129,21 +161,64 @@ router.post('/reverse-word', async (req, res) => {
     
     // Strategy 3: If reverse didn't work, try translating each source word forward to find the one that matches
     if (source_text && (!reversedWord || bestMatch === reversedWord)) {
-      const sourceWords = source_text.split(/\s+/).map(w => w.replace(/[.,!?;:()]/g, '')).filter(w => w.length > 0);
-      const targetClean = target_word.toLowerCase().replace(/[.,!?;:()]/g, '');
+      const sourceWordsRaw = source_text
+        .split(/\s+/)
+        .map(w => w.replace(/[^\p{L}\p{N}]/gu, ''))
+        .filter(w => w.length > 1);
+      const dedupedWords = [];
+      const seen = new Set();
+      for (const sw of sourceWordsRaw) {
+        const key = sw.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          dedupedWords.push(sw);
+        }
+      }
+      const sourceWords = dedupedWords.slice(0, 30);
+      const targetNormalized = normalizeLookup(target_word);
+      let bestForwardMatch = null;
       
-      for (const sw of sourceWords) {
-        if (sw.length < 2) continue;
-        try {
-          const translated = await mtWord(sw, source_lang, target_lang);
-          const translatedClean = translated.toLowerCase().replace(/[.,!?;:()]/g, '');
-          console.log('[reverse-word] Forward check:', sw, '→', translatedClean, 'vs', targetClean);
-          if (translatedClean === targetClean) {
-            bestMatch = sw;
-            console.log('[reverse-word] Forward match found:', sw);
-            break;
+      for (let i = 0; i < sourceWords.length; i += 8) {
+        const batch = sourceWords.slice(i, i + 8);
+        const forwardChecks = await Promise.all(batch.map(async (sw) => {
+          try {
+            const translated = await mtWord(sw, source_lang, target_lang);
+            const translatedNormalized = normalizeLookup(translated);
+            let score = 0;
+            if (translatedNormalized && targetNormalized) {
+              if (translatedNormalized === targetNormalized) score = 4;
+              else if (translatedNormalized.includes(targetNormalized) || targetNormalized.includes(translatedNormalized)) score = 3;
+              else {
+                const translatedTokens = new Set(translatedNormalized.split(' ').filter(Boolean));
+                const targetTokens = targetNormalized.split(' ').filter(Boolean);
+                const overlap = targetTokens.filter(t => translatedTokens.has(t)).length;
+                if (overlap > 0) score = 1 + (overlap / Math.max(targetTokens.length, 1));
+              }
+            }
+            console.log('[reverse-word] Forward check:', sw, '→', translatedNormalized, 'vs', targetNormalized, 'score:', score);
+            return { sourceWord: sw, translatedNormalized, score };
+          } catch (e) {
+            return null;
           }
-        } catch (e) { /* skip */ }
+        }));
+        
+        const exactMatch = forwardChecks.find(item => item && item.score >= 4);
+        if (exactMatch) {
+          bestMatch = exactMatch.sourceWord;
+          console.log('[reverse-word] Forward exact match found:', exactMatch.sourceWord);
+          break;
+        }
+        const partialMatch = forwardChecks
+          .filter(item => item && item.score > 0)
+          .sort((a, b) => b.score - a.score)[0];
+        if (partialMatch && (!bestForwardMatch || partialMatch.score > bestForwardMatch.score)) {
+          bestForwardMatch = partialMatch;
+        }
+      }
+
+      if ((!bestMatch || bestMatch === reversedWord || bestMatch === target_word) && bestForwardMatch) {
+        bestMatch = bestForwardMatch.sourceWord;
+        console.log('[reverse-word] Forward partial match used:', bestForwardMatch.sourceWord, 'score:', bestForwardMatch.score);
       }
     }
     
@@ -209,15 +284,16 @@ router.post('/translate', async (req, res) => {
         
         // Process forward edits (normal direction)
         for (const edit of forwardEdits) {
+          if (!isRecentMemoryEntry(edit)) continue;
           const srcLower = edit.sourceWord.toLowerCase();
-          const found = textLower.includes(srcLower);
+          const found = textLower.includes(srcLower) || textIncludesNormalized(text, edit.sourceWord);
           if (found) {
-            let googleWord = edit.originalTranslation || '';
-            if (!googleWord) {
-              try {
-                googleWord = await mtWord(edit.sourceWord, edit.sourceLanguage, edit.targetLanguage);
-              } catch (e) { googleWord = ''; }
-            }
+            const originalWord = edit.originalTranslation || '';
+            let currentGoogleWord = '';
+            try {
+              currentGoogleWord = await mtWord(edit.sourceWord, edit.sourceLanguage, edit.targetLanguage);
+            } catch (e) { currentGoogleWord = ''; }
+            const googleWord = currentGoogleWord || originalWord;
             const key = srcLower + ':' + edit.targetLanguage;
             if (!seenKeys.has(key)) {
               seenKeys.add(key);
@@ -226,8 +302,11 @@ router.post('/translate', async (req, res) => {
                 sourceWord: edit.sourceWord,
                 targetLanguage: edit.targetLanguage,
                 googleTranslation: googleWord,
+                currentTranslation: currentGoogleWord,
+                originalTranslation: originalWord,
                 userTranslation: edit.editedTranslation,
-                usageCount: edit.usageCount
+                usageCount: edit.usageCount,
+                lastUsedAt: edit.lastUsedAt
               });
             }
           }
@@ -236,14 +315,17 @@ router.post('/translate', async (req, res) => {
         // Process reverse edits (swap direction: if saved EN→AR "mahmoud→حودا", 
         // use as AR→EN "حودا→mahmoud" — sourceWord becomes userTranslation, editedTranslation becomes sourceWord to look for)
         for (const edit of reverseEdits) {
+          if (!isRecentMemoryEntry(edit)) continue;
           // In reverse: the "editedTranslation" (target-language word) is what we look for in the source text
           const editedLower = edit.editedTranslation.toLowerCase();
-          const found = textLower.includes(editedLower);
+          const found = textLower.includes(editedLower) || textIncludesNormalized(text, edit.editedTranslation);
           if (found) {
-            let googleWord = '';
+            const originalWord = edit.originalTranslation || '';
+            let currentGoogleWord = '';
             try {
-              googleWord = await mtWord(edit.editedTranslation, edit.targetLanguage, edit.sourceLanguage);
-            } catch (e) { googleWord = ''; }
+              currentGoogleWord = await mtWord(edit.editedTranslation, edit.targetLanguage, edit.sourceLanguage);
+            } catch (e) { currentGoogleWord = ''; }
+            const googleWord = currentGoogleWord || originalWord;
             
             // Swap: sourceWord becomes the user translation, editedTranslation becomes the source word
             const key = editedLower + ':' + edit.sourceLanguage;
@@ -254,8 +336,11 @@ router.post('/translate', async (req, res) => {
                 sourceWord: edit.editedTranslation,
                 targetLanguage: edit.sourceLanguage,
                 googleTranslation: googleWord,
+                currentTranslation: currentGoogleWord,
+                originalTranslation: originalWord,
                 userTranslation: edit.sourceWord,
-                usageCount: edit.usageCount
+                usageCount: edit.usageCount,
+                lastUsedAt: edit.lastUsedAt
               });
             }
           }
@@ -267,6 +352,96 @@ router.post('/translate', async (req, res) => {
       }
     } else {
       console.log('[Translate API] User NOT authenticated — skipping edit lookup');
+    }
+
+    if (userEdits.length) {
+      const targets = Object.keys(results || {});
+      for (const tgt of targets) {
+        const resultItem = results[tgt];
+        if (!resultItem || !resultItem.full_translation) continue;
+        if (!resultItem.google_full_translation) {
+          resultItem.google_full_translation = resultItem.full_translation;
+        }
+        const langEdits = userEdits.filter(e => e.targetLanguage === tgt);
+        if (!langEdits.length) continue;
+        try {
+          const hybrid = buildHybridTranslation({
+            googleText: resultItem.full_translation,
+            edits: langEdits,
+            targetLang: tgt
+          });
+          const fallbackApplied = [];
+          if (tgt === 'ar' && resultItem.full_translation) {
+            const appliedIds = new Set((hybrid.applied || []).map(a => String(a.editId || '')));
+            let mergedArabic = hybrid.text || resultItem.full_translation;
+            for (const edit of langEdits) {
+              const editId = String(edit.editId || '');
+              if (appliedIds.has(editId)) continue;
+              const replacement = String(edit.userTranslation || '').trim();
+              if (!replacement) continue;
+              const candidates = Array.from(new Set([
+                String(edit.currentTranslation || '').trim(),
+                String(edit.googleTranslation || '').trim(),
+                String(edit.originalTranslation || '').trim()
+              ].filter(Boolean)));
+              for (const candidate of candidates) {
+                const candidateNorm = normalizeLookup(candidate);
+                if (!candidateNorm) continue;
+                let replaced = false;
+                const tokens = mergedArabic.split(/(\s+)/).map(token => {
+                  if (!token || !token.trim()) return token;
+                  if (replaced) return token;
+                  const trailingMatch = token.match(/([.!?,;:،。؟]+)$/);
+                  const trailing = trailingMatch ? trailingMatch[1] : '';
+                  const base = trailing ? token.slice(0, -trailing.length) : token;
+                  const baseNorm = normalizeLookup(base);
+                  if (baseNorm === candidateNorm) {
+                    replaced = true;
+                    return replacement + trailing;
+                  }
+                  if (baseNorm === `و${candidateNorm}` && base.startsWith('و')) {
+                    replaced = true;
+                    return `و${replacement}` + trailing;
+                  }
+                  return token;
+                });
+                if (replaced) {
+                  mergedArabic = tokens.join('');
+                  fallbackApplied.push({
+                    editId: edit.editId,
+                    from: candidate,
+                    to: replacement
+                  });
+                  break;
+                }
+              }
+            }
+            resultItem.full_translation = mergedArabic;
+          } else if (tgt === 'ar' && hybrid.text) {
+            resultItem.full_translation = hybrid.text;
+          }
+          const hintByEditId = new Map();
+          for (const applied of (hybrid.applied || [])) {
+            const id = String(applied.editId || '');
+            if (!id || hintByEditId.has(id)) continue;
+            hintByEditId.set(id, String(applied.from || '').trim());
+          }
+          for (const edit of langEdits) {
+            const hint = hintByEditId.get(String(edit.editId || ''));
+            if (hint) {
+              edit.currentTranslation = hint;
+              edit.contextTranslation = hint;
+            }
+          }
+          resultItem.memoryHints = (hybrid.applied || []).concat(fallbackApplied).map(a => ({
+            editId: a.editId,
+            from: a.from,
+            to: a.to
+          }));
+        } catch (e) {
+          console.error('[Translate API] Hybrid memory hint error for', tgt, e.message);
+        }
+      }
     }
     
     console.log('[Translate API] ──── RESPONSE ────');

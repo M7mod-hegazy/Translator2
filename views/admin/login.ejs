@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Login — Translator</title>
+  <title>Admin Login — ORBIS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -56,11 +56,21 @@
       margin-bottom: 32px;
     }
     .admin-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
       font-size: 28px;
       font-weight: 700;
       color: #d4af37;
       text-transform: uppercase;
       letter-spacing: 2px;
+    }
+    .admin-logo-image {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+      display: block;
     }
     .admin-subtitle {
       color: #6b7280;
@@ -187,7 +197,7 @@
         <div class="admin-badge">
           <i data-lucide="shield" style="width:12px;height:12px;"></i> Admin Portal
         </div>
-        <div class="admin-logo">Translator</div>
+        <div class="admin-logo"><img src="/logo.png" alt="ORBIS logo" class="admin-logo-image"> ORBIS</div>
         <p class="admin-subtitle">Sign in to access the admin dashboard</p>
       </div>
 
@@ -209,7 +219,7 @@
     </div>
 
     <a href="/" class="back-link">
-      <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Back to Translator
+      <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Back to ORBIS
     </a>
   </div>
 

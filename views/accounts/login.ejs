@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login — Translator</title>
+  <title>Login — ORBIS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -42,13 +42,17 @@
     .brand-icon {
       width: 36px;
       height: 36px;
-      background: rgba(212, 175, 55, 0.15);
-      border: 1px solid rgba(212, 175, 55, 0.3);
-      border-radius: 10px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #d4af37;
+      overflow: hidden;
+    }
+    .brand-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
     }
     
     .brand-name {
@@ -241,12 +245,17 @@
     .mobile-brand-icon {
       width: 32px;
       height: 32px;
-      background: rgba(212, 175, 55, 0.1);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #d4af37;
+      overflow: hidden;
+    }
+    .mobile-brand-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
     }
     
     .form-header {
@@ -460,9 +469,9 @@
   <div class="left-section">
     <div class="brand">
       <div class="brand-icon">
-        <i data-lucide="languages" style="width:18px;height:18px;"></i>
+        <img src="/logo.png" alt="ORBIS logo">
       </div>
-      <span class="brand-name">Translator</span>
+      <span class="brand-name">ORBIS</span>
     </div>
     
     <div class="characters-container">
@@ -521,9 +530,9 @@
       <!-- Mobile Logo -->
       <div class="mobile-brand">
         <div class="mobile-brand-icon">
-          <i data-lucide="languages" style="width:16px;height:16px;"></i>
+          <img src="/logo.png" alt="ORBIS logo">
         </div>
-        <span style="color:#d4af37;text-transform:uppercase;letter-spacing:1px;">Translator</span>
+        <span style="color:#d4af37;text-transform:uppercase;letter-spacing:1px;">ORBIS</span>
       </div>
       
       <div class="form-header">

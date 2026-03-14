@@ -253,6 +253,16 @@ function findGlossaryMatches(text, glossary) {
 async function applyGlossaryReplacement(fullTranslation, matches, sourceLang, targetLang) {
   const tgtField = `term${targetLang.charAt(0).toUpperCase() + targetLang.slice(1)}`;
   let result = fullTranslation;
+  const mtWordResults = new Map();
+  const uniqueSourceWords = Array.from(new Set((matches || []).map(m => (m.sourceWord || '').toLowerCase()).filter(Boolean)));
+  
+  await Promise.all(uniqueSourceWords.map(async (sourceWord) => {
+    try {
+      mtWordResults.set(sourceWord, await mtWord(sourceWord, sourceLang, targetLang));
+    } catch (e) {
+      mtWordResults.set(sourceWord, sourceWord);
+    }
+  }));
   
   for (const m of matches) {
     const glossaryTarget = m[tgtField];
@@ -262,7 +272,7 @@ async function applyGlossaryReplacement(fullTranslation, matches, sourceLang, ta
     if (result.toLowerCase().includes(glossaryTarget.toLowerCase())) continue;
     
     // Get what MT translates this word to in isolation (CACHED)
-    const mtWordResult = await mtWord(m.sourceWord.toLowerCase(), sourceLang, targetLang);
+    const mtWordResult = mtWordResults.get((m.sourceWord || '').toLowerCase()) || await mtWord(m.sourceWord.toLowerCase(), sourceLang, targetLang);
     const mtClean = mtWordResult.replace(/[.!?,;:،。]+$/, '');
     
     console.log('[applyGlossaryReplacement] Source:', m.sourceWord, '→ MT says:', mtWordResult, '→ Glossary:', glossaryTarget);
@@ -388,15 +398,10 @@ async function translateWithGlossary(text, sourceLang, targetLang, options = {})
   
   // Translate line-by-line
   const lines = text.split('\n');
-  const translatedLines = [];
-  
-  for (const line of lines) {
-    if (!line.trim()) {
-      translatedLines.push(line);
-    } else {
-      translatedLines.push(await mtTranslate(line, sourceLang, targetLang));
-    }
-  }
+  const translatedLines = await Promise.all(lines.map(async (line) => {
+    if (!line.trim()) return line;
+    return await mtTranslate(line, sourceLang, targetLang);
+  }));
   
   let fullTranslation = translatedLines.join('\n');
   
@@ -467,22 +472,25 @@ async function translateMultiTarget(text, sourceLang, targetLangs, options = {})
     replacementMatches = matches.filter(m => !disabledSet.has(String(m.termId)));
   }
   
-  const results = {};
-  
-  // Translate each target
-  for (const tgt of targets) {
+  const targetResults = await Promise.all(targets.map(async (tgt) => {
     try {
-      results[tgt] = await translateWithGlossary(text, sourceLang, tgt, {
+      const translated = await translateWithGlossary(text, sourceLang, tgt, {
         category,
         useGlossary,
         glossary: allGlossary,
         matches: replacementMatches,
         allDetectedMatches: matches
       });
+      return [tgt, translated];
     } catch (e) {
       console.error(`Translation error for ${tgt}:`, e);
-      results[tgt] = { fullTranslation: '', segments: [] };
+      return [tgt, { full_translation: '', segments: [] }];
     }
+  }));
+  
+  const results = {};
+  for (const [tgt, translated] of targetResults) {
+    results[tgt] = translated;
   }
   
   return results;

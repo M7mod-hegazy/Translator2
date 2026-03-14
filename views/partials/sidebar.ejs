@@ -3,6 +3,12 @@
         <i data-lucide="x" style="width:24px;height:24px;"></i>
     </button>
     <div class="app-sidebar__accent"></div>
+    <div class="app-sidebar__brand pc-sidebar-brand">
+        <div class="app-sidebar__logo">
+            <img src="/logo.png" alt="ORBIS logo" class="brand-logo-image">
+        </div>
+        <span class="app-sidebar__title">ORBIS</span>
+    </div>
 
     <nav class="app-sidebar__nav">
         <div class="app-sidebar__group">
@@ -29,7 +35,7 @@
                 <span class="app-sidebar__icon-wrap">
                     <i data-lucide="book-open" class="app-sidebar__icon" aria-hidden="true"></i>
                 </span>
-                <span class="app-sidebar__text">Glossary</span>
+                <span class="app-sidebar__text">Category</span>
             </a>
             <% if (typeof user !== 'undefined' && user) { %>
             <a href="/memory" class="app-sidebar__link <%= typeof activeTab !== 'undefined' && activeTab === 'memory' ? 'is-active' : '' %>">
@@ -120,5 +126,10 @@
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
         background: linear-gradient(135deg, var(--gold-300, #e5c158) 0%, var(--gold-400, #d4af37) 100%);
+    }
+    @media (max-width: 768px) {
+        .pc-sidebar-brand {
+            display: none;
+        }
     }
 </style>

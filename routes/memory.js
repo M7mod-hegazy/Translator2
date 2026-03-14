@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const UserTranslationEdit = require('../models/UserTranslationEdit');
 const { ensureAuth } = require('../middleware/auth');
+const { toSyncPayload } = require('../utils/memoryDeletionSync');
 
 // Memory management page
 router.get('/', ensureAuth, async (req, res) => {
@@ -126,11 +127,11 @@ router.put('/api/:id', ensureAuth, async (req, res) => {
 // API: Delete a memory
 router.delete('/api/:id', ensureAuth, async (req, res) => {
   try {
-    const result = await UserTranslationEdit.deleteOne({ _id: req.params.id, user: req.user._id });
-    if (result.deletedCount === 0) {
+    const deleted = await UserTranslationEdit.findOneAndDelete({ _id: req.params.id, user: req.user._id });
+    if (!deleted) {
       return res.status(404).json({ success: false, error: 'Memory not found' });
     }
-    res.json({ success: true });
+    res.json({ success: true, ...toSyncPayload([deleted]) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -143,8 +144,21 @@ router.post('/api/bulk-delete', ensureAuth, async (req, res) => {
     if (!ids || !ids.length) {
       return res.status(400).json({ success: false, error: 'No IDs provided' });
     }
-    const result = await UserTranslationEdit.deleteMany({ _id: { $in: ids }, user: req.user._id });
-    res.json({ success: true, deletedCount: result.deletedCount });
+    const matches = await UserTranslationEdit.find({ _id: { $in: ids }, user: req.user._id }).select('_id');
+    if (!matches.length) {
+      return res.status(404).json({ success: false, error: 'No matching memories found' });
+    }
+    const matchIds = matches.map(m => m._id);
+    const result = await UserTranslationEdit.deleteMany({ _id: { $in: matchIds }, user: req.user._id });
+    if (result.deletedCount !== matchIds.length) {
+      return res.status(409).json({
+        success: false,
+        error: 'Deletion out of sync',
+        deletedCount: result.deletedCount,
+        expectedCount: matchIds.length
+      });
+    }
+    res.json({ success: true, deletedCount: result.deletedCount, ...toSyncPayload(matches) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

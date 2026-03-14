@@ -5,9 +5,9 @@
     </button>
     <div class="admin-logo">
       <div class="admin-logo-icon">
-        <i data-lucide="shield" style="width:18px;height:18px;"></i>
+        <img src="/logo.png" alt="ORBIS logo" class="brand-logo-image">
       </div>
-      <span class="admin-logo-text">Admin</span>
+      <span class="admin-logo-text">ORBIS</span>
     </div>
   </div>
   <nav class="admin-nav" id="admin-nav">
@@ -15,8 +15,7 @@
       <i data-lucide="x" style="width:32px;height:32px;"></i>
     </button>
     <a href="/admin" class="<%= typeof activePage !== 'undefined' && activePage === 'dashboard' ? 'active' : '' %>">Dashboard</a>
-    <a href="/admin/glossary" class="<%= typeof activePage !== 'undefined' && activePage === 'glossary' ? 'active' : '' %>">Glossary</a>
-    <a href="/admin/users" class="<%= typeof activePage !== 'undefined' && activePage === 'users' ? 'active' : '' %>">Users</a>
+    <a href="/admin/glossary" class="<%= typeof activePage !== 'undefined' && activePage === 'glossary' ? 'active' : '' %>">Categories</a>
     <a href="/">View Site</a>
   </nav>
   <div class="admin-user">

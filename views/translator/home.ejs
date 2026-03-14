@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Translator — Professional Translation Memory and CAT Tool">
-  <title>Translate — Translator</title>
+  <meta name="description" content="ORBIS — Professional Translation Memory and CAT Tool">
+  <title>Translate — ORBIS</title>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50,11 +50,11 @@
             <div class="header-glossary">
               <div class="custom-select-wrapper" id="glossary-custom-select">
                 <div class="custom-select-trigger">
-                  <span id="custom-select-label">No Glossary</span>
+                  <span id="custom-select-label">No Category</span>
                   <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
                 </div>
                 <div class="custom-options">
-                  <div class="custom-option is-selected" data-value="">No Glossary</div>
+                  <div class="custom-option is-selected" data-value="">No Category</div>
                   <% (categories || []).forEach(cat => { %>
                     <div class="custom-option" data-value="<%= cat._id %>"><%= cat.name %></div>
                   <% }); %>
@@ -152,7 +152,7 @@
                 <input type="checkbox" id="gloss-master-cb" checked>
                 <span class="gloss-slider"></span>
               </label>
-              <span class="gloss-bar-label">Glossary</span>
+              <span class="gloss-bar-label">Categories</span>
               <span class="gloss-bar-count" id="gloss-bar-count">0</span>
             </div>
             <div class="gloss-chips" id="gloss-chips"></div>
@@ -182,8 +182,6 @@
                     <th>English</th>
                     <th>Arabic</th>
                     <th>Spanish</th>
-                    <th>Notes</th>
-                    <th style="width:70px;"></th>
                   </tr>
                 </thead>
                 <tbody id="terms-tbody"></tbody>
@@ -285,11 +283,14 @@
     var chipStates = {}; // For Glossary
     var userEditsState = {}; // Array of edits from API
     var memoryChipStates = {}; // Local toggle states for User Edits: editId -> boolean
+    var hoveredMemoryEditId = null;
     var lastGlossarySegments = []; // Store glossary segments for saving
     var currentSessionId = null;
     var autoSaveTimer = null;
     var currentTerms = [];
     var allTermObjects = [];
+    var syncStorageKey = 'translation-memory-sync';
+    var lastSyncToken = 0;
     var acDropdown = document.getElementById('ac-dropdown');
     var acActiveIdx = -1;
     var acMatches = [];
@@ -305,15 +306,23 @@
     var autoSaveDot = document.getElementById('auto-save-indicator');
     var sourceHighlights = document.getElementById('source-highlights');
     var ghostOverlay = document.getElementById('ghost-overlay');
+    var translateContainer = document.querySelector('.translate-container');
     var currentGhostSuggestion = '';
+    var pendingSourceResolve = null;
     var textSize = 16;
 
     // Text size controls - applies to source and all target outputs
     function applyTextSize() {
       srcText.style.fontSize = textSize + 'px';
+      sourceHighlights.style.fontSize = textSize + 'px';
+      ghostOverlay.style.fontSize = textSize + 'px';
       document.querySelectorAll('.translate-output').forEach(function(el) {
         el.style.fontSize = textSize + 'px';
       });
+      if (translateContainer) {
+        translateContainer.style.setProperty('--ui-scale', String(textSize / 16));
+        translateContainer.style.setProperty('--dynamic-text-size', textSize + 'px');
+      }
     }
     
     document.getElementById('text-increase').addEventListener('click', function() {
@@ -413,6 +422,37 @@
     function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
     function esc(s) { return escapeHtml(s); }
     function enc(s) { return encodeURIComponent(s); }
+    function normalizeForMatch(s) {
+      return String(s || '')
+        .normalize('NFKC')
+        .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+        .replace(/[إأآٱ]/g, 'ا')
+        .replace(/ى/g, 'ي')
+        .replace(/ة/g, 'ه')
+        .replace(/ؤ/g, 'و')
+        .replace(/ئ/g, 'ي')
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+    }
+
+    function normalizePhraseTokens(s) {
+      var norm = normalizeForMatch(s || '');
+      if (!norm) return [];
+      return norm.split(' ').filter(function(t) { return !!t; });
+    }
+
+    function tokenCompatible(normToken, normPhraseToken, langCode) {
+      if (!normToken || !normPhraseToken) return false;
+      if (normToken === normPhraseToken) return true;
+      if (normToken.indexOf(normPhraseToken) !== -1 || normPhraseToken.indexOf(normToken) !== -1) return true;
+      if (langCode === 'ar') {
+        if (normToken === ('و' + normPhraseToken)) return true;
+        if (normPhraseToken === ('و' + normToken)) return true;
+      }
+      return false;
+    }
 
     function setSourceLang(code) {
       currentSourceLang = code;
@@ -420,6 +460,7 @@
       activeTargets = activeTargets.filter(function(t) { return t !== code; });
       syncTargetPills(); buildTargetPanels();
       updateAcDirection();
+      if (catSelect.value) loadDrawerTerms(catSelect.value);
       if (srcText.value.trim()) doTranslate();
     }
 
@@ -457,17 +498,17 @@
       var rtlLangs = ['ar'];
       var acEl = document.getElementById('ac-dropdown');
       var srcInput = document.getElementById('source-text');
-      if (rtlLangs.indexOf(currentSourceLang) > -1) {
-        acEl.style.direction = 'rtl';
-        acEl.style.textAlign = 'right';
-        srcInput.style.direction = 'rtl';
-        srcInput.style.textAlign = 'right';
-      } else {
-        acEl.style.direction = 'ltr';
-        acEl.style.textAlign = 'left';
-        srcInput.style.direction = 'ltr';
-        srcInput.style.textAlign = 'left';
-      }
+      var highlights = document.getElementById('source-highlights');
+      var overlay = document.getElementById('ghost-overlay');
+      var isRtl = rtlLangs.indexOf(currentSourceLang) > -1;
+      
+      var direction = isRtl ? 'rtl' : 'ltr';
+      var align = isRtl ? 'right' : 'left';
+      
+      if (acEl) { acEl.style.direction = direction; acEl.style.textAlign = align; }
+      if (srcInput) { srcInput.style.direction = direction; srcInput.style.textAlign = align; }
+      if (highlights) { highlights.style.direction = direction; highlights.style.textAlign = align; }
+      if (overlay) { overlay.style.direction = direction; overlay.style.textAlign = align; }
     }
 
     function syncTargetPills() {
@@ -502,6 +543,7 @@
       document.getElementById('source-count').textContent = srcText.value.length;
       clearBtn.style.opacity = srcText.value ? '1' : '0';
       updateSourceHighlights();
+      filterGlossaryTableLive();
       if (typeof updateGhostText === 'function') updateGhostText();
       clearTimeout(translateTimer);
       if (!srcText.value.trim()) {
@@ -563,30 +605,9 @@
           }
         }
         
-        // MERGE API edits with locally-saved edits instead of overwriting.
-        // This prevents glossary changes or re-translates from wiping edits saved in this session.
         var apiEdits = res.userEdits || [];
         console.log('[DEBUG][doTranslate] API returned', apiEdits.length, 'edits. Local has', userEditsState.length, 'edits.');
-        
-        if (apiEdits.length > 0) {
-          // Start with API edits
-          var merged = apiEdits.slice();
-          var apiKeys = {};
-          apiEdits.forEach(function(e) { apiKeys[e.editId] = true; });
-          
-          // Add any local-only edits (saved in this session but API doesn't know about yet)
-          userEditsState.forEach(function(localEdit) {
-            if (!apiKeys[localEdit.editId]) {
-              merged.push(localEdit);
-            }
-          });
-          userEditsState = merged;
-        } else if (userEditsState.length > 0) {
-          // API returned 0 edits but we have local ones — keep them
-          console.log('[DEBUG][doTranslate] Keeping', userEditsState.length, 'local edits (API returned empty)');
-        } else {
-          userEditsState = [];
-        }
+        userEditsState = apiEdits.slice();
         
         console.log('[DEBUG][doTranslate] userEditsState after merge:', JSON.stringify(userEditsState.map(function(e) { return { id: e.editId, src: e.sourceWord, tgt: e.userTranslation, lang: e.targetLanguage }; })));
         
@@ -622,6 +643,88 @@
       return targetWord;
     }
 
+    function renderArabicOutputWithMemory(out, fullText, data, code) {
+      var baseText = String(data.google_full_translation || fullText || '');
+      var hints = (data.memoryHints || []).filter(function(h) {
+        var hid = String(h && h.editId ? h.editId : '');
+        return h && hid && h.to && memoryChipStates[hid] !== false;
+      });
+      if (!hints.length) {
+        out.innerHTML = escapeHtml(baseText).replace(/\n/g, '<br>');
+        return;
+      }
+      var editById = {};
+      (userEditsState || []).forEach(function(e) {
+        if (!e || !e.editId) return;
+        editById[String(e.editId)] = e;
+      });
+      hints.sort(function(a, b) {
+        return String(b.from || '').length - String(a.from || '').length;
+      });
+      var renderedText = baseText;
+      for (var ai = 0; ai < hints.length; ai++) {
+        var activeHint = hints[ai];
+        var fromText = String(activeHint.from || '').trim();
+        var toTextApply = String(activeHint.to || '').trim();
+        if (!fromText || !toTextApply) continue;
+        var fromPos = renderedText.indexOf(fromText);
+        if (fromPos === -1) continue;
+        renderedText = renderedText.slice(0, fromPos) + toTextApply + renderedText.slice(fromPos + fromText.length);
+      }
+      var ranges = [];
+      var occupied = [];
+      function overlaps(start, end) {
+        for (var i = 0; i < occupied.length; i++) {
+          if (start < occupied[i].end && end > occupied[i].start) return true;
+        }
+        return false;
+      }
+      for (var hi = 0; hi < hints.length; hi++) {
+        var hint = hints[hi];
+        var toText = String(hint.to || '').trim();
+        if (!toText) continue;
+        var pos = renderedText.indexOf(toText);
+        while (pos !== -1) {
+          var endPos = pos + toText.length;
+          if (!overlaps(pos, endPos)) {
+            ranges.push({ start: pos, end: endPos, hint: hint });
+            occupied.push({ start: pos, end: endPos });
+            break;
+          }
+          pos = renderedText.indexOf(toText, pos + 1);
+        }
+      }
+      if (!ranges.length) {
+        out.innerHTML = escapeHtml(renderedText).replace(/\n/g, '<br>');
+        return;
+      }
+      ranges.sort(function(a, b) { return a.start - b.start; });
+      var html = '';
+      var cursor = 0;
+      for (var ri = 0; ri < ranges.length; ri++) {
+        var range = ranges[ri];
+        if (range.start > cursor) {
+          html += escapeHtml(renderedText.slice(cursor, range.start)).replace(/\n/g, '<br>');
+        }
+        var editId = String(range.hint.editId || '');
+        var edit = editById[editId] || {};
+        var classes = ['tgt-word', 'has-user-edit', 'is-user-edited'];
+        if (hoveredMemoryEditId && hoveredMemoryEditId === editId) classes.push('is-memory-hovered');
+        var dataset = ' data-lang="' + code + '"'
+          + ' data-edit-id="' + escapeHtml(editId) + '"'
+          + ' data-google="' + escapeHtml(range.hint.from || edit.googleTranslation || '') + '"'
+          + ' data-source="' + escapeHtml(edit.sourceWord || range.hint.from || '') + '"'
+          + ' data-saved="' + escapeHtml(edit.userTranslation || range.hint.to || '') + '"';
+        var token = renderedText.slice(range.start, range.end);
+        html += '<span class="' + classes.join(' ') + '"' + dataset + ' title="Memory: Edit applied" onclick="openEditPopover(this)">' + escapeHtml(token) + '<span class="memory-dot"></span></span>';
+        cursor = range.end;
+      }
+      if (cursor < renderedText.length) {
+        html += escapeHtml(renderedText.slice(cursor)).replace(/\n/g, '<br>');
+      }
+      out.innerHTML = html;
+    }
+
     function rerenderAllOutputs() {
       console.log('[DEBUG][rerender] ──── RERENDER START ────');
       if (!lastTranslations) return;
@@ -633,6 +736,12 @@
         if (!out || !data) continue;
         
         var fullText = data.full_translation || '';
+        if (code === 'ar') {
+          renderArabicOutputWithMemory(out, fullText, data, code);
+          var arCnt = document.getElementById('count-' + code);
+          if (arCnt) arCnt.textContent = fullText.length;
+          continue;
+        }
         var wordsArray = fullText.split(/(\s+)/);
         var htmlParts = [];
         
@@ -670,8 +779,79 @@
           }
         }
         
-        // ── Step 2: Build memory edit lookup ──
-        var langEdits = (userEditsState || []).filter(function(e) { return e.targetLanguage === code; });
+        // ── Step 2: Build contextual memory spans (phrase-aware, order-safe) ──
+        var langEdits = (userEditsState || []).filter(function(e) {
+          return e.targetLanguage === code && memoryChipStates[String(e.editId)] !== false;
+        });
+        var contentTokens = [];
+        for (var cw = 0; cw < wordsArray.length; cw++) {
+          if (!wordsArray[cw] || !wordsArray[cw].trim()) continue;
+          if (glossaryWordMap[cw]) continue;
+          contentTokens.push({
+            wordIndex: cw,
+            normalized: normalizeForMatch(wordsArray[cw])
+          });
+        }
+        var spanStartMap = {};
+        var spanCovered = {};
+        
+        function isWordIndexFree(startIdx, endIdx) {
+          for (var chk = startIdx; chk <= endIdx; chk++) {
+            if (spanCovered[chk] || glossaryWordMap[chk]) return false;
+          }
+          return true;
+        }
+        
+        function findBestSpanForEdit(edit) {
+          var phraseCandidates = [];
+          if (edit.currentTranslation) phraseCandidates.push(edit.currentTranslation);
+          if (edit.googleTranslation) phraseCandidates.push(edit.googleTranslation);
+          if (edit.originalTranslation) phraseCandidates.push(edit.originalTranslation);
+          phraseCandidates = Array.from(new Set(phraseCandidates.map(function(p) { return String(p || '').trim(); }).filter(function(p) { return !!p; })));
+          var best = null;
+          
+          for (var pc = 0; pc < phraseCandidates.length; pc++) {
+            var phraseTokens = normalizePhraseTokens(phraseCandidates[pc]);
+            if (!phraseTokens.length) continue;
+            if (code === 'ar') {
+              var userTokens = normalizePhraseTokens(edit.userTranslation || '');
+              if (!userTokens.length || userTokens.length !== phraseTokens.length) continue;
+            }
+            for (var i = 0; i <= contentTokens.length - phraseTokens.length; i++) {
+              var ok = true;
+              for (var j = 0; j < phraseTokens.length; j++) {
+                if (!tokenCompatible(contentTokens[i + j].normalized, phraseTokens[j], code)) {
+                  ok = false;
+                  break;
+                }
+              }
+              if (!ok) continue;
+              var startWordIdx = contentTokens[i].wordIndex;
+              var endWordIdx = contentTokens[i + phraseTokens.length - 1].wordIndex;
+              if (!isWordIndexFree(startWordIdx, endWordIdx)) continue;
+              var usage = parseInt(edit.usageCount || 0, 10) || 0;
+              var score = (phraseTokens.length * 100) + usage;
+              if (!best || score > best.score) {
+                best = { startWordIdx: startWordIdx, endWordIdx: endWordIdx, score: score };
+              }
+            }
+          }
+          return best;
+        }
+        
+        for (var le = 0; le < langEdits.length; le++) {
+          var edit = langEdits[le];
+          var bestSpan = findBestSpanForEdit(edit);
+          if (!bestSpan) continue;
+          spanStartMap[bestSpan.startWordIdx] = {
+            edit: edit,
+            startWordIdx: bestSpan.startWordIdx,
+            endWordIdx: bestSpan.endWordIdx
+          };
+          for (var cov = bestSpan.startWordIdx; cov <= bestSpan.endWordIdx; cov++) {
+            spanCovered[cov] = true;
+          }
+        }
         
         // ── Step 3: Render each word ──
         for (var wIdx = 0; wIdx < wordsArray.length; wIdx++) {
@@ -682,37 +862,19 @@
           }
           
           var cleanWord = wordToken.replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,'').toLowerCase();
+          var glossaryMeta = glossaryWordMap[wIdx] || null;
+          var isGlossaryWord = !!glossaryMeta;
           
-          // ── Check glossary (pre-computed) ──
-          if (glossaryWordMap[wIdx]) {
-            htmlParts.push('<span class="glossary-word" title="Glossary: ' + escapeHtml(glossaryWordMap[wIdx].source) + '">' + escapeHtml(wordToken) + '</span>');
+          // ── Check memory edits via spans ──
+          var spanMeta = spanStartMap[wIdx] || null;
+          var matchedEdit = spanMeta ? spanMeta.edit : null;
+          if (!matchedEdit && spanCovered[wIdx]) {
             continue;
-          }
-          
-          // ── Check memory edits ──
-          var matchedEdit = null;
-          for (var e = 0; e < langEdits.length; e++) {
-            var ed = langEdits[e];
-            var gWords = (ed.googleTranslation || '').replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,'').toLowerCase().split(/\s+/);
-            var uWords = (ed.userTranslation || '').replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,'').toLowerCase().split(/\s+/);
-            
-            // Match against any word in the google translation (handles multi-word)
-            for (var gw = 0; gw < gWords.length; gw++) {
-              if (gWords[gw] && cleanWord === gWords[gw]) { matchedEdit = ed; break; }
-            }
-            if (matchedEdit) break;
-            
-            // Match against user translation words if chip is on
-            if (memoryChipStates[ed.editId]) {
-              for (var uw = 0; uw < uWords.length; uw++) {
-                if (uWords[uw] && cleanWord === uWords[uw]) { matchedEdit = ed; break; }
-              }
-              if (matchedEdit) break;
-            }
           }
           
           var displayWord = wordToken;
           var classes = ['tgt-word'];
+          if (isGlossaryWord) classes.push('glossary-word');
           var dataset = ' data-raw="' + escapeHtml(cleanWord) + '" data-lang="' + code + '" data-idx="' + wIdx + '"';
           var titleAttr = '';
           var dotHtml = '';
@@ -721,24 +883,34 @@
             dataset += ' data-google="' + escapeHtml(matchedEdit.googleTranslation || cleanWord) + '"';
             dataset += ' data-source="' + escapeHtml(matchedEdit.sourceWord) + '"';
             classes.push('has-user-edit');
+            if (hoveredMemoryEditId && hoveredMemoryEditId === String(matchedEdit.editId)) classes.push('is-memory-hovered');
             dotHtml = '<span class="memory-dot"></span>';
             
             if (memoryChipStates[matchedEdit.editId]) {
               classes.push('is-user-edited');
-              var replaceRegex;
-              try { replaceRegex = new RegExp(escapeRegex(cleanWord), 'i'); } catch(re) { replaceRegex = cleanWord; }
-              displayWord = wordToken.replace(replaceRegex, matchedEdit.userTranslation);
+              var trailing = '';
+              var trailToken = spanMeta ? (wordsArray[spanMeta.endWordIdx] || wordToken) : wordToken;
+              var trailingMatch = trailToken.match(/([.,!?;:،。]+)$/);
+              if (trailingMatch) trailing = trailingMatch[1];
+              displayWord = matchedEdit.userTranslation + trailing;
               dataset += ' data-saved="' + escapeHtml(matchedEdit.userTranslation) + '"';
               dataset += ' data-edit-id="' + matchedEdit.editId + '"';
-              titleAttr = ' title="Memory: Edit applied"';
+              titleAttr = isGlossaryWord
+                ? ' title="Categories + Memory: Edit applied"'
+                : ' title="Memory: Edit applied"';
             } else {
               dataset += ' data-saved="' + escapeHtml(matchedEdit.userTranslation) + '"';
               dataset += ' data-edit-id="' + matchedEdit.editId + '"';
-              titleAttr = ' title="Memory: You have a saved edit for this"';
+              titleAttr = isGlossaryWord
+                ? ' title="Categories + Memory: You have a saved edit for this"'
+                : ' title="Memory: You have a saved edit for this"';
             }
           } else {
+            var sourceWord = isGlossaryWord ? (glossaryMeta.source || cleanWord) : cleanWord;
             dataset += ' data-google="' + escapeHtml(cleanWord) + '"';
-            dataset += ' data-source="' + escapeHtml(cleanWord) + '"';
+            dataset += ' data-source="' + escapeHtml(sourceWord) + '"';
+            if (isGlossaryWord) dataset += ' data-source-fixed="1"';
+            if (isGlossaryWord) titleAttr = ' title="Category: ' + escapeHtml(glossaryMeta.source || '') + '"';
           }
           
           htmlParts.push('<span class="' + classes.join(' ') + '"' + dataset + titleAttr + ' onclick="openEditPopover(this)">' + escapeHtml(displayWord) + dotHtml + '</span>');
@@ -766,18 +938,88 @@
       memoryBar.style.display = 'flex';
       document.getElementById('memory-bar-count').textContent = edits.length;
       memoryChipsEl.innerHTML = edits.map(function(edit) {
-        var isOn = memoryChipStates[edit.editId] !== false;
-        return '<span class="m-chip' + (isOn ? '' : ' is-off') + '" onclick="toggleMemoryChip(\'' + edit.editId + '\', this)">'
+        var editId = String(edit.editId || '');
+        var isOn = memoryChipStates[editId] !== false;
+        return '<span class="m-chip' + (isOn ? '' : ' is-off') + '" data-edit-id="' + editId + '" onclick="toggleMemoryChip(\'' + editId + '\', this)" onmouseenter="setMemoryHover(\'' + editId + '\', true)" onmouseleave="setMemoryHover(\'' + editId + '\', false)">'
           + '<span class="m-chip-dot"></span>' + escapeHtml(edit.sourceWord) + ' \u2192 ' + escapeHtml(edit.userTranslation)
           + '</span>';
       }).join('');
     }
 
+    window.setMemoryHover = function(editId, isHovering) {
+      hoveredMemoryEditId = isHovering ? String(editId) : null;
+      updateSourceHighlights();
+      rerenderAllOutputs();
+    };
+
     window.toggleMemoryChip = function(editId, el) {
-      memoryChipStates[editId] = (memoryChipStates[editId] === false);
-      el.classList.toggle('is-off', !memoryChipStates[editId]);
+      var key = String(editId || '');
+      memoryChipStates[key] = (memoryChipStates[key] === false);
+      el.classList.toggle('is-off', !memoryChipStates[key]);
+      updateSourceHighlights();
       rerenderAllOutputs(); 
     };
+
+    function pruneDeletedMemory(payload) {
+      if (!payload) return;
+      var deletedIds = payload.deletedIds || [];
+      var deletedSyntheticIds = payload.deletedSyntheticIds || [];
+      if (!deletedIds.length && !deletedSyntheticIds.length) return;
+      var deletedSet = new Set(deletedIds.concat(deletedSyntheticIds));
+      userEditsState = (userEditsState || []).filter(function(edit) {
+        var id = String(edit.editId || '');
+        var baseId = id.endsWith('_rev') ? id.slice(0, -4) : id;
+        return !deletedSet.has(id) && !deletedSet.has(baseId) && !deletedSet.has(baseId + '_rev');
+      });
+      Object.keys(memoryChipStates || {}).forEach(function(k) {
+        var base = k.endsWith('_rev') ? k.slice(0, -4) : k;
+        if (deletedSet.has(k) || deletedSet.has(base) || deletedSet.has(base + '_rev')) {
+          delete memoryChipStates[k];
+        }
+      });
+      renderMemoryChips(userEditsState);
+      rerenderAllOutputs();
+    }
+
+    window.addEventListener('storage', function(e) {
+      if (e.key !== syncStorageKey || !e.newValue) return;
+      try {
+        var payload = JSON.parse(e.newValue);
+        if (!payload || !payload.syncToken) return;
+        if (payload.syncToken <= lastSyncToken) return;
+        lastSyncToken = payload.syncToken;
+        pruneDeletedMemory(payload);
+      } catch (err) {}
+    });
+
+    function fetchReverseSourceWord(targetWord, targetLang) {
+      return fetch('/api/reverse-word', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          target_word: targetWord,
+          source_lang: currentSourceLang,
+          target_lang: targetLang,
+          source_text: srcText.value
+        })
+      }).then(function(r) { return r.json(); })
+      .then(function(data) {
+        return String((data && data.source_word) || '').trim();
+      }).catch(function() {
+        return '';
+      });
+    }
+
+    function isLikelyResolvedSourceWord(sourceWord) {
+      var val = String(sourceWord || '').trim();
+      if (!val || val === '...') return false;
+      if (currentSourceLang === 'en' && /[\u0600-\u06FF]/.test(val)) return false;
+      var sourceNorm = normalizeForMatch(srcText.value || '');
+      var candidateNorm = normalizeForMatch(val);
+      if (!sourceNorm || !candidateNorm) return true;
+      if (candidateNorm.length < 2) return true;
+      return sourceNorm.indexOf(candidateNorm) !== -1;
+    }
 
     window.openEditPopover = function(el) {
       currentEditWordEl = el;
@@ -787,6 +1029,7 @@
       var editId = el.getAttribute('data-edit-id');
       var googleWord = el.getAttribute('data-google');
       var sourceAttr = el.getAttribute('data-source');
+      var sourceFixed = el.getAttribute('data-source-fixed') === '1';
       var savedWord = el.getAttribute('data-saved');
       var targetLang = el.getAttribute('data-lang');
       var clickedWord = el.textContent.trim();
@@ -822,38 +1065,30 @@
       event.stopPropagation();
       
       // Now resolve the correct SOURCE word
-      if (editId && sourceAttr) {
-        // Has a pre-existing edit — source word is already correct
+      pendingSourceResolve = null;
+      if ((editId && sourceAttr) || (sourceFixed && sourceAttr)) {
         console.log('[DEBUG][popover] Using existing edit sourceWord:', sourceAttr);
         document.getElementById('po-source-word').textContent = sourceAttr;
+        pendingSourceResolve = Promise.resolve(sourceAttr);
       } else {
         // No existing edit — need to figure out the SOURCE word for this TARGET word
         // Show loading state while resolving
         document.getElementById('po-source-word').textContent = '...';
         
         console.log('[DEBUG][popover] Resolving source word via reverse-word API...');
-        fetch('/api/reverse-word', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            target_word: googleWord || clickedWord,
-            source_lang: currentSourceLang,
-            target_lang: targetLang,
-            source_text: srcText.value
-          })
-        }).then(function(r) { return r.json(); })
-        .then(function(data) {
-          var resolvedSource = data.source_word || googleWord || clickedWord;
+        pendingSourceResolve = fetchReverseSourceWord(googleWord || clickedWord, targetLang)
+        .then(function(sourceWord) {
+          var resolvedSource = sourceWord || googleWord || clickedWord;
           console.log('[DEBUG][popover] Resolved source word:', resolvedSource);
           document.getElementById('po-source-word').textContent = resolvedSource;
           // Also update the element's data-source for future reference
           if (currentEditWordEl) {
             currentEditWordEl.setAttribute('data-source', resolvedSource);
           }
+          return resolvedSource;
         }).catch(function(err) {
           console.error('[DEBUG][popover] Reverse word error:', err.message);
-          // Fallback: use the target word
-          document.getElementById('po-source-word').textContent = googleWord || clickedWord;
+          return '';
         });
       }
     };
@@ -864,7 +1099,7 @@
       currentEditWordEl = null;
     };
 
-    window.saveUserEdit = function() {
+    window.saveUserEdit = async function() {
       if (!currentEditWordEl) return;
       var newTranslation = document.getElementById('po-target-input').value.trim();
       if (!newTranslation) {
@@ -875,6 +1110,29 @@
       var sourceWord = document.getElementById('po-source-word').textContent;
       var targetLang = document.getElementById('po-target-lang').value;
       var originalGoogle = document.getElementById('po-google-translation').value;
+      var fallbackTargetWord = originalGoogle || currentEditWordEl.textContent.trim();
+
+      if (pendingSourceResolve) {
+        try {
+          var pendingResolved = await pendingSourceResolve;
+          if (pendingResolved) {
+            sourceWord = pendingResolved;
+            document.getElementById('po-source-word').textContent = pendingResolved;
+          }
+        } catch (e) {}
+      }
+
+      if (!isLikelyResolvedSourceWord(sourceWord)) {
+        var retryResolved = await fetchReverseSourceWord(fallbackTargetWord, targetLang);
+        if (retryResolved) {
+          sourceWord = retryResolved;
+          document.getElementById('po-source-word').textContent = retryResolved;
+        }
+      }
+      if (!isLikelyResolvedSourceWord(sourceWord)) {
+        Toast.error('Could not resolve source word. Please try again.');
+        return;
+      }
       
       console.log('[DEBUG][saveUserEdit] ──── SAVING ────');
       console.log('[DEBUG][saveUserEdit] sourceWord:', sourceWord);
@@ -964,7 +1222,7 @@
         for (var i = 0; i < chipLangs.length; i++) {
           var code = chipLangs[i];
           var val = seg['term_' + code];
-          if (val) parts.push('<b>' + code.toUpperCase() + '</b> ' + escapeHtml(val));
+          if (val) parts.push('<b>' + code.toUpperCase() + '</b> <bdi>' + escapeHtml(val) + '</bdi>');
         }
         var label = parts.join(' · ');
         return '<span class="g-chip' + (isOn ? '' : ' is-off') + '" data-tid="' + seg.term_id + '" onclick="toggleChip(\'' + seg.term_id + '\',this)">'
@@ -1126,13 +1384,27 @@
 
     function updateSourceHighlights() {
       var text = srcText.value;
-      if (!text || !currentTerms.length || !useGlossary) { sourceHighlights.innerHTML = ''; return; }
+      if (!text) { sourceHighlights.innerHTML = ''; return; }
       var html = escapeHtml(text);
-      var sorted = currentTerms.slice().sort(function(a, b) { return b.length - a.length; });
-      for (var i = 0; i < sorted.length; i++) {
-        var re = new RegExp('(' + escapeRegex(escapeHtml(sorted[i])) + ')', 'gi');
-        html = html.replace(re, '<mark>$1</mark>');
+      var hasAnyHighlight = false;
+      if (currentTerms.length && useGlossary) {
+        var sorted = currentTerms.slice().sort(function(a, b) { return b.length - a.length; });
+        for (var i = 0; i < sorted.length; i++) {
+          var re = new RegExp('(' + escapeRegex(escapeHtml(sorted[i])) + ')', 'gi');
+          html = html.replace(re, '<mark>$1</mark>');
+          hasAnyHighlight = true;
+        }
       }
+      if (hoveredMemoryEditId) {
+        var hoverEdit = (userEditsState || []).find(function(e) { return String(e.editId) === String(hoveredMemoryEditId); });
+        var sourceTerm = hoverEdit ? String(hoverEdit.sourceWord || '').trim() : '';
+        if (sourceTerm) {
+          var sourceRe = new RegExp('(' + escapeRegex(escapeHtml(sourceTerm)) + ')', 'gi');
+          html = html.replace(sourceRe, '<mark class="memory-hover-mark">$1</mark>');
+          hasAnyHighlight = true;
+        }
+      }
+      if (!hasAnyHighlight) { sourceHighlights.innerHTML = ''; return; }
       sourceHighlights.innerHTML = html + '\n';
     }
 
@@ -1152,16 +1424,48 @@
         document.getElementById('terms-table').style.display = 'table';
         document.getElementById('terms-empty').style.display = 'none';
         tbody.innerHTML = terms.map(function(t) {
-          return '<tr data-id="' + t.id + '"><td>' + esc(t.term_en || '\u2014') + '</td>'
+          return '<tr data-id="' + t.id + '" data-term-en="' + enc(t.term_en || '') + '" data-term-ar="' + enc(t.term_ar || '') + '" data-term-es="' + enc(t.term_es || '') + '" style="cursor:pointer;"><td>' + esc(t.term_en || '\u2014') + '</td>'
             + '<td>' + esc(t.term_ar || '\u2014') + '</td>'
             + '<td>' + esc(t.term_es || '\u2014') + '</td>'
-            + '<td class="text-muted" style="font-size:11px;">' + esc(t.notes || '\u2014') + '</td>'
-            + '<td style="text-align:right;white-space:nowrap;">'
-            + '<button class="btn btn-ghost btn-sm btn-icon" onclick="editTerm(' + t.id + ',\'' + enc(t.term_en || '') + '\',\'' + enc(t.term_ar || '') + '\',\'' + enc(t.term_es || '') + '\',\'' + enc(t.notes || '') + '\')"><i data-lucide="pencil"></i></button>'
-            + '<button class="btn btn-danger btn-sm btn-icon" onclick="deleteTerm(' + t.id + ',this)"><i data-lucide="trash-2"></i></button></td></tr>';
+            + '</tr>';
         }).join('');
+        filterGlossaryTableLive();
         lucide.createIcons();
       }).catch(function() { Toast.error('Failed to load terms.'); });
+    }
+
+    function insertTermFromTable(term) {
+      if (!term) return;
+      var wordInfo = getWordAtCursor();
+      var before = srcText.value.substring(0, wordInfo.start);
+      var after = srcText.value.substring(wordInfo.end);
+      var needsSpace = after.length > 0 && after[0] !== ' ' ? ' ' : '';
+      srcText.value = before + term + needsSpace + after;
+      var newPos = wordInfo.start + term.length + needsSpace.length;
+      srcText.setSelectionRange(newPos, newPos);
+      srcText.focus();
+      srcText.dispatchEvent(new Event('input'));
+    }
+
+    function filterGlossaryTableLive() {
+      var tbody = document.getElementById('terms-tbody');
+      if (!tbody) return;
+      var rows = tbody.querySelectorAll('tr[data-id]');
+      if (!rows.length) return;
+      if (!catSelect.value || !useGlossary) {
+        for (var i = 0; i < rows.length; i++) rows[i].style.display = '';
+        return;
+      }
+      var typed = normalizeForMatch(getWordAtCursor().word || '');
+      for (var r = 0; r < rows.length; r++) {
+        var row = rows[r];
+        if (!typed) {
+          row.style.display = '';
+          continue;
+        }
+        var rowText = normalizeForMatch(row.textContent || '');
+        row.style.display = rowText.indexOf(typed) !== -1 ? '' : 'none';
+      }
     }
 
     document.getElementById('add-term-drawer-btn').addEventListener('click', function() {
@@ -1203,7 +1507,7 @@
     }
 
     function deleteTerm(id, btn) {
-      ConfirmDelete.show('Delete Term', 'Delete this glossary term?', function() {
+      ConfirmDelete.show('Delete Term', 'Delete this category term?', function() {
         api('/glossary/term/' + id + '/', { method: 'DELETE' }).then(function() {
           btn.closest('tr').remove();
           if (srcText.value.trim()) doTranslate();
@@ -1213,6 +1517,15 @@
     }
 
     document.getElementById('toggle-drawer').addEventListener('click', function(e) { e.stopPropagation(); document.getElementById('drawer-body').classList.toggle('is-collapsed'); });
+    document.getElementById('terms-tbody').addEventListener('click', function(e) {
+      if (e.target.closest('button')) return;
+      var row = e.target.closest('tr[data-id]');
+      if (!row) return;
+      var srcAttr = 'data-term-' + currentSourceLang;
+      var sourceTerm = decodeURIComponent(row.getAttribute(srcAttr) || '');
+      if (!sourceTerm) sourceTerm = decodeURIComponent(row.getAttribute('data-term-en') || row.getAttribute('data-term-ar') || row.getAttribute('data-term-es') || '');
+      insertTermFromTable(sourceTerm);
+    });
 
     // Ghost text autocomplete
     var wordHistory = new Set();
@@ -1300,25 +1613,9 @@
     }
 
     function showAcDropdown(matches, wordInfo) {
-      if (!matches.length) { acDropdown.style.display = 'none'; acMatches = []; acActiveIdx = -1; return; }
-      acMatches = matches;
-      acActiveIdx = 0;
-      var srcField = 'term_' + currentSourceLang;
-      var chipLangs = [currentSourceLang].concat(activeTargets.filter(function(c) { return c !== currentSourceLang; }));
-      acDropdown.innerHTML = matches.map(function(t, idx) {
-        var termLabel = escapeHtml(t[srcField] || t.term_en || '');
-        var langParts = [];
-        for (var i = 0; i < chipLangs.length; i++) {
-          var code = chipLangs[i];
-          var val = t['term_' + code];
-          if (val) langParts.push('<span class="ac-lang"><b>' + code.toUpperCase() + '</b> ' + escapeHtml(val) + '</span>');
-        }
-        return '<div class="ac-row' + (idx === 0 ? ' is-active' : '') + '" data-idx="' + idx + '" onmousedown="acSelect(' + idx + ')">'
-          + '<span class="ac-term">' + termLabel + '</span>'
-          + '<span class="ac-langs">' + langParts.join('') + '</span>'
-          + '<span class="ac-hint">Tab \u21b5</span></div>';
-      }).join('');
-      acDropdown.style.display = 'block';
+      acDropdown.style.display = 'none';
+      acMatches = [];
+      acActiveIdx = -1;
     }
 
     function acSelect(idx) {
@@ -1355,21 +1652,7 @@
         srcText.dispatchEvent(new Event('input'));
         return;
       }
-      if (acDropdown.style.display === 'none' || !acMatches.length) return;
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        acActiveIdx = (acActiveIdx + 1) % acMatches.length;
-        updateAcHighlight();
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        acActiveIdx = (acActiveIdx - 1 + acMatches.length) % acMatches.length;
-        updateAcHighlight();
-      } else if (e.key === 'Tab' || e.key === 'Enter') {
-        if (acMatches.length > 0 && acActiveIdx >= 0) {
-          e.preventDefault();
-          acSelect(acActiveIdx);
-        }
-      } else if (e.key === 'Escape') {
+      if (e.key === 'Escape') {
         acDropdown.style.display = 'none';
         acMatches = [];
         acActiveIdx = -1;
@@ -1386,29 +1669,10 @@
 
     // Input listener for autocomplete
     srcText.addEventListener('input', function() {
-      if (!allTermObjects.length || !useGlossary || !catSelect.value) {
-        acDropdown.style.display = 'none';
-        return;
-      }
-      var wordInfo = getWordAtCursor();
-      var typed = wordInfo.word.toLowerCase();
-      if (!typed || typed.length < 1) { acDropdown.style.display = 'none'; return; }
-      var srcField = 'term_' + currentSourceLang;
-      var matches = [];
-      for (var i = 0; i < allTermObjects.length; i++) {
-        var t = allTermObjects[i];
-        var fields = ['term_en', 'term_ar', 'term_es'];
-        var matched = false;
-        for (var f = 0; f < fields.length; f++) {
-          var val = (t[fields[f]] || '').toLowerCase();
-          if (val && val.indexOf(typed) === 0 && val !== typed) { matched = true; break; }
-        }
-        var srcVal = (t[srcField] || '').toLowerCase();
-        if (!matched && srcVal && srcVal.indexOf(typed) > -1 && srcVal !== typed) matched = true;
-        if (matched) matches.push(t);
-        if (matches.length >= 8) break;
-      }
-      showAcDropdown(matches, wordInfo);
+      acDropdown.style.display = 'none';
+      acMatches = [];
+      acActiveIdx = -1;
+      filterGlossaryTableLive();
     });
 
     document.addEventListener('mousedown', function(e) {
@@ -1437,14 +1701,13 @@
       if (!handle || !sourcePanel || !panels) return;
       
       var isResizing = false;
-      var startY, startHeight, panelsHeight;
+      var startY, startHeight;
       
       handle.addEventListener('mousedown', function(e) {
         e.preventDefault();
         isResizing = true;
         startY = e.clientY;
-        startHeight = sourcePanel.offsetHeight;
-        panelsHeight = panels.offsetHeight;
+        startHeight = panels.offsetHeight;
         document.body.style.cursor = 'row-resize';
         document.body.style.userSelect = 'none';
         handle.classList.add('is-active');
@@ -1453,9 +1716,8 @@
       document.addEventListener('mousemove', function(e) {
         if (!isResizing) return;
         var dy = e.clientY - startY;
-        var newHeight = Math.max(120, Math.min(panelsHeight - 120, startHeight + dy));
-        sourcePanel.style.flex = 'none';
-        sourcePanel.style.height = newHeight + 'px';
+        var newHeight = Math.max(200, startHeight + dy);
+        panels.style.minHeight = newHeight + 'px';
       });
       
       document.addEventListener('mouseup', function() {
@@ -1472,17 +1734,15 @@
         e.preventDefault();
         isResizing = true;
         startY = e.touches[0].clientY;
-        startHeight = sourcePanel.offsetHeight;
-        panelsHeight = panels.offsetHeight;
+        startHeight = panels.offsetHeight;
         handle.classList.add('is-active');
       }, { passive: false });
       
       document.addEventListener('touchmove', function(e) {
         if (!isResizing) return;
         var dy = e.touches[0].clientY - startY;
-        var newHeight = Math.max(120, Math.min(panelsHeight - 120, startHeight + dy));
-        sourcePanel.style.flex = 'none';
-        sourcePanel.style.height = newHeight + 'px';
+        var newHeight = Math.max(200, startHeight + dy);
+        panels.style.minHeight = newHeight + 'px';
       });
       
       document.addEventListener('touchend', function() {

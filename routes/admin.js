@@ -142,32 +142,4 @@ router.delete('/terms/:id', ensureAdmin, async (req, res) => {
   }
 });
 
-// Users list
-router.get('/users', ensureAdmin, async (req, res) => {
-  try {
-    const users = await User.find().sort({ createdAt: -1 });
-    res.render('admin/users', {
-      title: 'Manage Users',
-      user: req.user,
-      users
-    });
-  } catch (err) {
-    res.status(500).render('errors/500', { error: err });
-  }
-});
-
-// Update user role
-router.put('/users/:id/role', ensureAdmin, async (req, res) => {
-  try {
-    const { role } = req.body;
-    if (!['user', 'admin'].includes(role)) {
-      return res.status(400).json({ error: 'Invalid role' });
-    }
-    const updated = await User.findByIdAndUpdate(req.params.id, { role }, { new: true });
-    res.json({ success: true, user: updated });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 module.exports = router;

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Translation Memory — Translator</title>
+  <title>Translation Memory — ORBIS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -273,6 +273,7 @@
       var selectedIds = new Set();
       var editingId = null;
       var timer = null;
+      var syncStorageKey = 'translation-memory-sync';
 
       function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
@@ -292,6 +293,13 @@
       function langName(code) {
         var map = { en: 'EN', ar: 'AR', es: 'ES' };
         return map[code] || code.toUpperCase();
+      }
+
+      function broadcastDeletionSync(payload) {
+        if (!payload || !payload.syncToken) return;
+        try {
+          localStorage.setItem(syncStorageKey, JSON.stringify(payload));
+        } catch (e) {}
       }
 
       async function loadMemories() {
@@ -455,7 +463,8 @@
       window.deleteMemory = function(id) {
         ConfirmDelete.show('Delete Memory', 'This will permanently remove this translation memory.', async function() {
           try {
-            await api('/memory/api/' + id, { method: 'DELETE' });
+            var result = await api('/memory/api/' + id, { method: 'DELETE' });
+            broadcastDeletionSync(result);
             selectedIds.delete(id);
             Toast.success('Memory deleted.');
             loadMemories();
@@ -467,10 +476,11 @@
         if (!selectedIds.size) return;
         ConfirmDelete.show('Delete ' + selectedIds.size + ' Memories', 'This will permanently remove all selected translation memories.', async function() {
           try {
-            await api('/memory/api/bulk-delete', {
+            var result = await api('/memory/api/bulk-delete', {
               method: 'POST',
               body: JSON.stringify({ ids: Array.from(selectedIds) })
             });
+            broadcastDeletionSync(result);
             Toast.success(selectedIds.size + ' memories deleted.');
             selectedIds.clear();
             headerCb.checked = false;

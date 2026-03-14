@@ -1,9 +1,26 @@
-// Require authentication
+const isJsonRequest = (req) => {
+  const accept = String(req.headers.accept || '').toLowerCase();
+  const originalUrl = String(req.originalUrl || '');
+  return originalUrl.startsWith('/api/') || originalUrl.includes('/api/') || req.xhr || accept.includes('application/json');
+};
+
+const handleUnauthenticated = (req, res) => {
+  if (isJsonRequest(req)) {
+    return res.status(401).json({ error: 'Login required', needLogin: true });
+  }
+  const nextPath = encodeURIComponent(req.originalUrl || '/');
+  return res.status(401).render('errors/401', {
+    title: 'Login Required',
+    message: 'You need to log in to access this page.',
+    loginHref: `/auth/login?next=${nextPath}`
+  });
+};
+
 exports.ensureAuth = (req, res, next) => {
   if (req.isAuthenticated && req.isAuthenticated()) {
     return next();
   }
-  res.status(401).json({ error: 'Login required', needLogin: true });
+  return handleUnauthenticated(req, res);
 };
 
 // Guest only (not logged in)
@@ -29,12 +46,7 @@ exports.ensureAdmin = (req, res, next) => {
       message: 'You need admin privileges to access this page.'
     });
   }
-  // Not logged in - show admin login page
-  console.log('Rendering admin login page');
-  return res.render('admin/login', {
-    title: 'Admin Login',
-    user: null
-  });
+  return handleUnauthenticated(req, res);
 };
 
 // API Authentication - optional, allows anonymous access but sets user if logged in

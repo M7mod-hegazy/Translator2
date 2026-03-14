@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard — Translator</title>
+  <title>Admin Dashboard — ORBIS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -166,7 +166,7 @@
 
   <main class="admin-content">
     <h1 class="admin-title">Dashboard</h1>
-    <p class="admin-subtitle">Welcome back, <%= user.username %>. Here's an overview of your translator platform.</p>
+    <p class="admin-subtitle">Welcome back, <%= user.username %>. Here's an overview of your ORBIS platform.</p>
     
     <div class="stats-grid">
       <div class="stat-card">
@@ -194,7 +194,7 @@
           </div>
         </div>
         <div class="stat-value"><%= stats.termCount %></div>
-        <div class="stat-label">Glossary Terms</div>
+        <div class="stat-label">Category Terms</div>
       </div>
     </div>
 
@@ -203,11 +203,7 @@
       <div class="action-grid">
         <a href="/admin/glossary" class="action-btn">
           <i data-lucide="book" style="width:20px;height:20px;"></i>
-          <span>Manage Glossary</span>
-        </a>
-        <a href="/admin/users" class="action-btn">
-          <i data-lucide="users" style="width:20px;height:20px;"></i>
-          <span>Manage Users</span>
+          <span>Manage Categories</span>
         </a>
         <a href="/" class="action-btn">
           <i data-lucide="external-link" style="width:20px;height:20px;"></i>
@@ -218,7 +214,7 @@
 
     <a href="/" class="back-to-site">
       <i data-lucide="arrow-left" style="width:14px;height:14px;"></i>
-      Back to Translator
+      Back to ORBIS
     </a>
   </main>
 
