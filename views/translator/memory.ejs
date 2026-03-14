@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Translation Memory — Translator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    /* Page Layout */
+    .mem-header { display: flex; flex-direction: column; gap: 16px; }
+    .mem-header-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .mem-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+    .mem-stat { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+    .mem-stat-value { font-weight: 700; color: var(--gold-400); font-size: 14px; }
+
+    /* Controls Bar */
+    .mem-controls { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+    .mem-search { position: relative; flex: 1; min-width: 200px; }
+    .mem-search-input {
+      width: 100%; padding: 10px 40px 10px 38px; font-size: 13px;
+      background: var(--bg-card); border: 1px solid var(--gold-border);
+      border-radius: var(--radius-lg); color: var(--text-primary);
+      transition: all .25s; box-sizing: border-box;
+    }
+    .mem-search-input:focus { border-color: var(--gold-400); box-shadow: 0 0 0 3px rgba(212,175,55,0.12); outline: none; }
+    .mem-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--text-muted); pointer-events: none; }
+    .mem-search-clear { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 50%; transition: all .2s; display: none; }
+    .mem-search-clear:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
+
+    .mem-filter-select, .mem-sort-select {
+      padding: 8px 32px 8px 12px; font-size: 12px;
+      background: var(--bg-card); border: 1px solid var(--gold-border);
+      border-radius: var(--radius-md); color: var(--text-primary); cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e");
+      background-repeat: no-repeat; background-position: right 10px center;
+    }
+    .mem-filter-select:focus, .mem-sort-select:focus { border-color: var(--gold-400); outline: none; }
+
+    .mem-bulk-actions { display: flex; gap: 6px; }
+    .mem-bulk-btn {
+      padding: 8px 14px; font-size: 11px; font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-md); cursor: pointer; transition: all .2s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .mem-bulk-delete { background: rgba(239,68,68,0.08); color: #ef4444; border-color: rgba(239,68,68,0.2); }
+    .mem-bulk-delete:hover { background: rgba(239,68,68,0.15); }
+    .mem-select-all-btn { background: rgba(212,175,55,0.06); color: var(--gold-400); border-color: rgba(212,175,55,0.15); }
+    .mem-select-all-btn:hover { background: rgba(212,175,55,0.12); }
+
+    /* Memory Table */
+    .mem-table-wrap { margin-top: 16px; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid rgba(212,175,55,0.08); }
+    .mem-table { width: 100%; border-collapse: collapse; }
+    .mem-table th {
+      text-align: left; padding: 12px 16px; font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted);
+      background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(212,175,55,0.1);
+    }
+    .mem-table td {
+      padding: 12px 16px; font-size: 13px; color: var(--text-secondary);
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      transition: background 0.15s;
+    }
+    .mem-table tr:hover td { background: rgba(212,175,55,0.03); }
+    .mem-table tr.is-selected td { background: rgba(212,175,55,0.06); }
+    .mem-table tr.is-editing td { background: rgba(138,43,226,0.04); }
+
+    .mem-cb { width: 15px; height: 15px; cursor: pointer; accent-color: var(--gold-400); }
+    .mem-word { font-weight: 600; color: var(--text-primary); }
+    .mem-arrow { color: var(--gold-400); font-size: 14px; padding: 0 8px; }
+    .mem-translation { color: var(--gold-300); font-weight: 500; }
+    .mem-original { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    .mem-lang-pill {
+      display: inline-flex; padding: 2px 8px; font-size: 9px; font-weight: 700;
+      text-transform: uppercase; border-radius: var(--radius-pill);
+      background: rgba(212,175,55,0.08); color: var(--gold-400);
+      border: 1px solid rgba(212,175,55,0.12); letter-spacing: 0.3px;
+    }
+    .mem-lang-direction { display: flex; align-items: center; gap: 4px; }
+    .mem-lang-arrow { color: var(--text-muted); font-size: 10px; }
+    .mem-usage { font-size: 11px; color: var(--text-muted); text-align: center; }
+    .mem-usage-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 8px; border-radius: var(--radius-pill);
+      background: rgba(138,43,226,0.08); color: #b388ff; font-size: 10px; font-weight: 600;
+    }
+    .mem-date { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+    .mem-actions { display: flex; gap: 4px; }
+    .mem-action-btn {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; padding: 5px; border-radius: var(--radius-sm);
+      transition: all .15s; display: flex; align-items: center; justify-content: center;
+    }
+    .mem-action-btn.edit-btn:hover { color: var(--gold-400); background: rgba(212,175,55,0.1); }
+    .mem-action-btn.del-btn:hover { color: #ef4444; background: rgba(239,68,68,0.08); }
+
+    /* Inline Edit */
+    .mem-edit-input {
+      width: 100%; padding: 6px 10px; font-size: 13px;
+      background: rgba(0,0,0,0.3); border: 1px solid var(--gold-400);
+      border-radius: var(--radius-sm); color: var(--text-primary);
+      outline: none; box-sizing: border-box;
+    }
+    .mem-edit-actions { display: flex; gap: 4px; margin-top: 4px; }
+    .mem-edit-save { background: var(--gold-400); color: #000; border: none; padding: 4px 12px; font-size: 11px; font-weight: 600; border-radius: var(--radius-sm); cursor: pointer; }
+    .mem-edit-cancel { background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1); padding: 4px 12px; font-size: 11px; border-radius: var(--radius-sm); cursor: pointer; }
+
+    /* Pagination */
+    .mem-pagination { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 20px; padding: 16px 0; }
+    .mem-pg-btn {
+      display: inline-flex; align-items: center; gap: 4px; padding: 7px 13px;
+      font-size: 12px; font-weight: 500; color: var(--text-secondary);
+      background: var(--bg-card); border: 1px solid var(--gold-border);
+      border-radius: var(--radius-md); cursor: pointer; transition: all .2s;
+    }
+    .mem-pg-btn:hover { border-color: var(--gold-400); color: var(--gold-400); }
+    .mem-pg-btn.is-active { background: rgba(212,175,55,0.15); border-color: var(--gold-400); color: var(--gold-400); font-weight: 700; }
+    .mem-pg-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* Empty State */
+    .mem-empty {
+      text-align: center; padding: 60px 20px; color: var(--text-muted);
+    }
+    .mem-empty-icon { opacity: 0.4; margin-bottom: 16px; }
+    .mem-empty h3 { font-size: 16px; color: var(--text-primary); margin-bottom: 8px; }
+    .mem-empty p { font-size: 13px; max-width: 320px; margin: 0 auto; line-height: 1.6; }
+
+    /* Loading State */
+    .mem-loading { text-align: center; padding: 40px; }
+    .mem-spinner { display: inline-block; width: 24px; height: 24px; border: 2px solid var(--gold-border); border-top-color: var(--gold-400); border-radius: 50%; animation: memspin .6s linear infinite; }
+    @keyframes memspin { to { transform: rotate(360deg); } }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .mem-controls { flex-direction: column; }
+      .mem-search { min-width: 0; }
+      .mem-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .mem-table { min-width: 580px; }
+      .mem-table th, .mem-table td { padding: 10px 10px; font-size: 12px; }
+      .mem-header-top { flex-direction: column; align-items: stretch; }
+      .mem-stats { justify-content: space-between; }
+      .mem-bulk-actions { justify-content: stretch; }
+      .mem-bulk-btn { flex: 1; justify-content: center; }
+    }
+    @media (max-width: 480px) {
+      .mem-table th, .mem-table td { padding: 8px 6px; font-size: 11px; }
+      .mem-lang-pill { font-size: 8px; padding: 1px 5px; }
+      .mem-usage-badge { font-size: 9px; padding: 1px 6px; }
+    }
+  </style>
+</head>
+<body>
+  <%- include('../partials/home-mobile-header.ejs', { user: typeof user !== 'undefined' ? user : null }) %>
+  <%- include('../partials/sidebar.ejs', { activeTab: 'memory', user: user }) %>
+  <div class="app-shell">
+    <main class="main-content">
+
+    <header class="page-header mem-header">
+      <div class="mem-header-top">
+        <div>
+          <h1 class="page-title" style="margin:0;">Translation Memory</h1>
+          <p style="font-size:12px;color:var(--text-muted);margin:4px 0 0;">Your personal word translations across all languages</p>
+        </div>
+        <div class="mem-stats">
+          <div class="mem-stat">
+            <i data-lucide="brain" style="width:14px;height:14px;color:var(--gold-400);"></i>
+            <span id="total-count" class="mem-stat-value">—</span>
+            <span>total</span>
+          </div>
+          <div class="mem-stat">
+            <i data-lucide="trending-up" style="width:14px;height:14px;color:#b388ff;"></i>
+            <span id="selected-count" class="mem-stat-value" style="color:#b388ff;">0</span>
+            <span>selected</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mem-controls">
+        <div class="mem-search">
+          <i data-lucide="search" class="mem-search-icon"></i>
+          <input type="text" id="mem-search" class="mem-search-input" placeholder="Search words, translations..." autocomplete="off">
+          <button id="mem-clear" class="mem-search-clear" title="Clear">
+            <i data-lucide="x" style="width:13px;height:13px;"></i>
+          </button>
+        </div>
+        <select id="mem-lang-filter" class="mem-filter-select" title="Filter by language">
+          <option value="all">All Languages</option>
+          <option value="en">English</option>
+          <option value="ar">Arabic</option>
+          <option value="es">Spanish</option>
+        </select>
+        <select id="mem-sort" class="mem-sort-select" title="Sort by">
+          <option value="recent">Recently Used</option>
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="most-used">Most Used</option>
+          <option value="alpha">Alphabetical</option>
+        </select>
+        <div class="mem-bulk-actions">
+          <button id="select-all-btn" class="mem-bulk-btn mem-select-all-btn" onclick="toggleSelectAll()">
+            <i data-lucide="check-square" style="width:13px;height:13px;"></i> Select All
+          </button>
+          <button id="bulk-delete-btn" class="mem-bulk-btn mem-bulk-delete" onclick="bulkDelete()" style="display:none;">
+            <i data-lucide="trash-2" style="width:13px;height:13px;"></i> Delete <span id="bulk-count"></span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div id="mem-loading" class="mem-loading">
+        <div class="mem-spinner"></div>
+        <p style="margin-top:12px;font-size:12px;color:var(--text-muted);">Loading memories...</p>
+      </div>
+
+      <div id="mem-content" style="display:none;">
+        <div class="mem-table-wrap">
+          <table class="mem-table">
+            <thead>
+              <tr>
+                <th style="width:32px;"><input type="checkbox" class="mem-cb" id="header-cb" onchange="toggleSelectAll(this.checked)"></th>
+                <th>Source → Translation</th>
+                <th>Direction</th>
+                <th>Used</th>
+                <th>Date</th>
+                <th style="width:80px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="mem-tbody"></tbody>
+          </table>
+        </div>
+
+        <div id="mem-empty" class="mem-empty" style="display:none;">
+          <div class="mem-empty-icon"><i data-lucide="brain" style="width:48px;height:48px;color:var(--gold-400);"></i></div>
+          <h3>No memories yet</h3>
+          <p>When you edit translations on the translator page, your word preferences are saved here automatically.</p>
+          <a href="/" class="btn btn-primary" style="margin-top:16px;">Start Translating</a>
+        </div>
+
+        <div id="mem-pagination" class="mem-pagination"></div>
+      </div>
+    </div>
+
+  </main>
+  </div>
+
+  <script src="/js/app.js?v=2"></script>
+  <script>
+    (function() {
+      var searchInput = document.getElementById('mem-search');
+      var clearBtn = document.getElementById('mem-clear');
+      var langFilter = document.getElementById('mem-lang-filter');
+      var sortSelect = document.getElementById('mem-sort');
+      var tbody = document.getElementById('mem-tbody');
+      var loadingEl = document.getElementById('mem-loading');
+      var contentEl = document.getElementById('mem-content');
+      var emptyEl = document.getElementById('mem-empty');
+      var paginationEl = document.getElementById('mem-pagination');
+      var totalCountEl = document.getElementById('total-count');
+      var selectedCountEl = document.getElementById('selected-count');
+      var bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+      var bulkCountEl = document.getElementById('bulk-count');
+      var headerCb = document.getElementById('header-cb');
+
+      var currentPage = 1;
+      var selectedIds = new Set();
+      var editingId = null;
+      var timer = null;
+
+      function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+      function timeAgo(dateStr) {
+        if (!dateStr) return '—';
+        var diff = Date.now() - new Date(dateStr).getTime();
+        var mins = Math.floor(diff / 60000);
+        var hours = Math.floor(diff / 3600000);
+        var days = Math.floor(diff / 86400000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return mins + 'm ago';
+        if (hours < 24) return hours + 'h ago';
+        if (days < 7) return days + 'd ago';
+        return new Date(dateStr).toLocaleDateString();
+      }
+
+      function langName(code) {
+        var map = { en: 'EN', ar: 'AR', es: 'ES' };
+        return map[code] || code.toUpperCase();
+      }
+
+      async function loadMemories() {
+        var q = searchInput.value.trim();
+        var lang = langFilter.value;
+        var sort = sortSelect.value;
+
+        try {
+          var url = '/memory/api/list?page=' + currentPage + '&sort=' + sort;
+          if (q) url += '&q=' + encodeURIComponent(q);
+          if (lang !== 'all') url += '&lang=' + lang;
+
+          var res = await api(url);
+
+          loadingEl.style.display = 'none';
+          contentEl.style.display = 'block';
+
+          totalCountEl.textContent = res.total;
+
+          if (!res.items || !res.items.length) {
+            emptyEl.style.display = 'block';
+            document.querySelector('.mem-table-wrap').style.display = 'none';
+            paginationEl.innerHTML = '';
+            return;
+          }
+
+          emptyEl.style.display = 'none';
+          document.querySelector('.mem-table-wrap').style.display = 'block';
+
+          tbody.innerHTML = res.items.map(function(item) {
+            var isSelected = selectedIds.has(item.id);
+            var isEditing = editingId === item.id;
+
+            if (isEditing) {
+              return '<tr class="is-editing" data-id="' + item.id + '">'
+                + '<td><input type="checkbox" class="mem-cb" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + item.id + '\',this.checked)"></td>'
+                + '<td colspan="4">'
+                + '<div style="display:flex;gap:10px;align-items:flex-start;">'
+                + '<div style="flex:1;"><label style="font-size:10px;color:var(--text-muted);display:block;margin-bottom:3px;">Source Word</label><input class="mem-edit-input" id="edit-src-' + item.id + '" value="' + esc(item.sourceWord) + '"></div>'
+                + '<div style="flex:1;"><label style="font-size:10px;color:var(--text-muted);display:block;margin-bottom:3px;">Translation</label><input class="mem-edit-input" id="edit-tgt-' + item.id + '" value="' + esc(item.editedTranslation) + '"></div>'
+                + '</div>'
+                + '<div class="mem-edit-actions">'
+                + '<button class="mem-edit-save" onclick="saveEdit(\'' + item.id + '\')">Save</button>'
+                + '<button class="mem-edit-cancel" onclick="cancelEdit()">Cancel</button>'
+                + '</div>'
+                + '</td>'
+                + '<td></td>'
+                + '</tr>';
+            }
+
+            return '<tr data-id="' + item.id + '" class="' + (isSelected ? 'is-selected' : '') + '">'
+              + '<td><input type="checkbox" class="mem-cb" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + item.id + '\',this.checked)"></td>'
+              + '<td>'
+              + '<span class="mem-word">' + esc(item.sourceWord) + '</span>'
+              + '<span class="mem-arrow">→</span>'
+              + '<span class="mem-translation">' + esc(item.editedTranslation) + '</span>'
+              + (item.originalTranslation ? '<div class="mem-original">Google: ' + esc(item.originalTranslation) + '</div>' : '')
+              + '</td>'
+              + '<td><div class="mem-lang-direction"><span class="mem-lang-pill">' + langName(item.sourceLanguage) + '</span><span class="mem-lang-arrow">→</span><span class="mem-lang-pill">' + langName(item.targetLanguage) + '</span></div></td>'
+              + '<td><span class="mem-usage-badge"><i data-lucide="repeat" style="width:10px;height:10px;"></i> ' + item.usageCount + '</span></td>'
+              + '<td><span class="mem-date">' + timeAgo(item.lastUsedAt || item.createdAt) + '</span></td>'
+              + '<td><div class="mem-actions">'
+              + '<button class="mem-action-btn edit-btn" onclick="startEdit(\'' + item.id + '\')" title="Edit"><i data-lucide="pencil" style="width:13px;height:13px;"></i></button>'
+              + '<button class="mem-action-btn del-btn" onclick="deleteMemory(\'' + item.id + '\')" title="Delete"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></button>'
+              + '</div></td>'
+              + '</tr>';
+          }).join('');
+
+          // Pagination
+          if (res.totalPages > 1) {
+            var html = '';
+            if (currentPage > 1) {
+              html += '<button class="mem-pg-btn" onclick="goPage(' + (currentPage - 1) + ')"><i data-lucide="chevron-left" style="width:14px;height:14px;"></i></button>';
+            }
+            for (var i = 1; i <= res.totalPages; i++) {
+              if (i === currentPage) {
+                html += '<button class="mem-pg-btn is-active">' + i + '</button>';
+              } else if (Math.abs(i - currentPage) < 3 || i === 1 || i === res.totalPages) {
+                html += '<button class="mem-pg-btn" onclick="goPage(' + i + ')">' + i + '</button>';
+              } else if (Math.abs(i - currentPage) === 3) {
+                html += '<span style="color:var(--text-muted);padding:0 4px;">…</span>';
+              }
+            }
+            if (currentPage < res.totalPages) {
+              html += '<button class="mem-pg-btn" onclick="goPage(' + (currentPage + 1) + ')"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i></button>';
+            }
+            paginationEl.innerHTML = html;
+          } else {
+            paginationEl.innerHTML = '';
+          }
+
+          lucide.createIcons();
+          updateBulkUI();
+
+        } catch (e) {
+          loadingEl.style.display = 'none';
+          contentEl.style.display = 'block';
+          Toast.error('Failed to load memories.');
+          console.error(e);
+        }
+      }
+
+      // Exposed to window
+      window.goPage = function(p) { currentPage = p; loadMemories(); };
+
+      window.toggleSelect = function(id, checked) {
+        if (checked) selectedIds.add(id); else selectedIds.delete(id);
+        var row = document.querySelector('tr[data-id="' + id + '"]');
+        if (row) row.classList.toggle('is-selected', checked);
+        updateBulkUI();
+      };
+
+      window.toggleSelectAll = function(checked) {
+        if (typeof checked === 'undefined') {
+          checked = !headerCb.checked;
+          headerCb.checked = checked;
+        }
+        document.querySelectorAll('#mem-tbody .mem-cb').forEach(function(cb) {
+          cb.checked = checked;
+          var row = cb.closest('tr');
+          var id = row.dataset.id;
+          if (checked) selectedIds.add(id); else selectedIds.delete(id);
+          row.classList.toggle('is-selected', checked);
+        });
+        updateBulkUI();
+      };
+
+      function updateBulkUI() {
+        selectedCountEl.textContent = selectedIds.size;
+        bulkDeleteBtn.style.display = selectedIds.size > 0 ? 'flex' : 'none';
+        bulkCountEl.textContent = '(' + selectedIds.size + ')';
+      }
+
+      window.startEdit = function(id) {
+        editingId = id;
+        loadMemories();
+      };
+
+      window.cancelEdit = function() {
+        editingId = null;
+        loadMemories();
+      };
+
+      window.saveEdit = async function(id) {
+        var srcEl = document.getElementById('edit-src-' + id);
+        var tgtEl = document.getElementById('edit-tgt-' + id);
+        if (!srcEl || !tgtEl) return;
+        try {
+          await api('/memory/api/' + id, {
+            method: 'PUT',
+            body: JSON.stringify({ sourceWord: srcEl.value, editedTranslation: tgtEl.value })
+          });
+          Toast.success('Memory updated.');
+          editingId = null;
+          loadMemories();
+        } catch (e) {
+          Toast.error('Update failed.');
+        }
+      };
+
+      window.deleteMemory = function(id) {
+        ConfirmDelete.show('Delete Memory', 'This will permanently remove this translation memory.', async function() {
+          try {
+            await api('/memory/api/' + id, { method: 'DELETE' });
+            selectedIds.delete(id);
+            Toast.success('Memory deleted.');
+            loadMemories();
+          } catch (e) { Toast.error('Delete failed.'); }
+        });
+      };
+
+      window.bulkDelete = function() {
+        if (!selectedIds.size) return;
+        ConfirmDelete.show('Delete ' + selectedIds.size + ' Memories', 'This will permanently remove all selected translation memories.', async function() {
+          try {
+            await api('/memory/api/bulk-delete', {
+              method: 'POST',
+              body: JSON.stringify({ ids: Array.from(selectedIds) })
+            });
+            Toast.success(selectedIds.size + ' memories deleted.');
+            selectedIds.clear();
+            headerCb.checked = false;
+            loadMemories();
+          } catch (e) { Toast.error('Bulk delete failed.'); }
+        });
+      };
+
+      // Search debounce
+      searchInput.addEventListener('input', function() {
+        clearTimeout(timer);
+        clearBtn.style.display = this.value ? 'block' : 'none';
+        timer = setTimeout(function() { currentPage = 1; loadMemories(); }, 250);
+      });
+      clearBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        clearBtn.style.display = 'none';
+        currentPage = 1;
+        loadMemories();
+      });
+      langFilter.addEventListener('change', function() { currentPage = 1; loadMemories(); });
+      sortSelect.addEventListener('change', function() { currentPage = 1; loadMemories(); });
+
+      // Initial load
+      loadMemories();
+    })();
+  </script>
+</body>
+</html>

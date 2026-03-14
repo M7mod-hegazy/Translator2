@@ -79,6 +79,82 @@ router.post('/speech-to-text', async (req, res) => {
   }
 });
 
+// ── Reverse Word Lookup ──
+
+// POST /api/reverse-word - Given a target-language word, find what source word produced it
+router.post('/reverse-word', async (req, res) => {
+  try {
+    const { target_word, source_lang, target_lang, source_text } = req.body;
+    
+    console.log('[reverse-word] target_word:', target_word, 'source_lang:', source_lang, 'target_lang:', target_lang);
+    
+    if (!target_word || !source_lang || !target_lang) {
+      return res.json({ success: true, source_word: target_word });
+    }
+    
+    // Strategy 1: Reverse-translate the target word back to source language
+    let reversedWord = '';
+    try {
+      reversedWord = await mtWord(target_word, target_lang, source_lang);
+      console.log('[reverse-word] Reverse MT:', target_word, '→', reversedWord);
+    } catch (e) {
+      console.error('[reverse-word] Reverse MT error:', e.message);
+    }
+    
+    // Strategy 2: Check if the reversed word exists in the source text
+    let bestMatch = reversedWord || target_word;
+    
+    if (source_text && reversedWord) {
+      const sourceWords = source_text.split(/\s+/).map(w => w.replace(/[.,!?;:()]/g, ''));
+      const reversedLower = reversedWord.toLowerCase();
+      
+      // Try exact match first
+      let found = sourceWords.find(w => w.toLowerCase() === reversedLower);
+      
+      // Try starts-with match
+      if (!found) {
+        found = sourceWords.find(w => w.toLowerCase().startsWith(reversedLower) || reversedLower.startsWith(w.toLowerCase()));
+      }
+      
+      // Try case-insensitive includes
+      if (!found) {
+        found = sourceWords.find(w => reversedLower.includes(w.toLowerCase()) || w.toLowerCase().includes(reversedLower));
+      }
+      
+      if (found) {
+        bestMatch = found;
+        console.log('[reverse-word] Matched source word:', found);
+      }
+    }
+    
+    // Strategy 3: If reverse didn't work, try translating each source word forward to find the one that matches
+    if (source_text && (!reversedWord || bestMatch === reversedWord)) {
+      const sourceWords = source_text.split(/\s+/).map(w => w.replace(/[.,!?;:()]/g, '')).filter(w => w.length > 0);
+      const targetClean = target_word.toLowerCase().replace(/[.,!?;:()]/g, '');
+      
+      for (const sw of sourceWords) {
+        if (sw.length < 2) continue;
+        try {
+          const translated = await mtWord(sw, source_lang, target_lang);
+          const translatedClean = translated.toLowerCase().replace(/[.,!?;:()]/g, '');
+          console.log('[reverse-word] Forward check:', sw, '→', translatedClean, 'vs', targetClean);
+          if (translatedClean === targetClean) {
+            bestMatch = sw;
+            console.log('[reverse-word] Forward match found:', sw);
+            break;
+          }
+        } catch (e) { /* skip */ }
+      }
+    }
+    
+    console.log('[reverse-word] Final result:', bestMatch);
+    res.json({ success: true, source_word: bestMatch });
+  } catch (err) {
+    console.error('[reverse-word] Error:', err.message);
+    res.json({ success: true, source_word: req.body.target_word || '' });
+  }
+});
+
 // ── Translate API ──
 
 // POST /api/translate - Translate text into one or more target languages
@@ -106,35 +182,45 @@ router.post('/translate', async (req, res) => {
       disabledTerms: disabled_terms || []
     });
     
-    // Look up user's saved edits if authenticated
+    // Look up user's saved edits if authenticated (NON-DIRECTIONAL: check both directions)
     let userEdits = [];
     if (req.isAuthenticated && req.isAuthenticated()) {
       try {
         console.log('[Translate API] Looking up user edits for user:', req.user._id);
-        const savedEdits = await UserTranslationEdit.find({
+        
+        // Forward edits: sourceLanguage matches current source, targetLanguage matches current targets
+        const forwardEdits = await UserTranslationEdit.find({
           user: req.user._id,
           sourceLanguage: source_lang || 'en',
           targetLanguage: { $in: target_langs }
         }).sort({ usageCount: -1, lastUsedAt: -1 });
         
-        console.log('[Translate API] Found', savedEdits.length, 'saved edits in DB');
-        savedEdits.forEach(e => console.log('[Translate API]   DB Edit:', e.sourceWord, '→', e.editedTranslation, '(original:', e.originalTranslation, ') lang:', e.targetLanguage));
+        // Reverse edits: sourceLanguage matches a target, targetLanguage matches current source
+        const reverseEdits = await UserTranslationEdit.find({
+          user: req.user._id,
+          sourceLanguage: { $in: target_langs },
+          targetLanguage: source_lang || 'en'
+        }).sort({ usageCount: -1, lastUsedAt: -1 });
         
-        if (savedEdits.length) {
-          const textLower = text.toLowerCase();
-          for (const edit of savedEdits) {
-            const srcLower = edit.sourceWord.toLowerCase();
-            const found = textLower.includes(srcLower);
-            console.log('[Translate API]   Checking if source text contains "' + edit.sourceWord + '":', found);
-            if (found) {
-              // Get what Google currently translates this word to
-              let googleWord = edit.originalTranslation || '';
-              if (!googleWord) {
-                try {
-                  googleWord = await mtWord(edit.sourceWord, edit.sourceLanguage, edit.targetLanguage);
-                  console.log('[Translate API]   MT lookup for "' + edit.sourceWord + '" →', googleWord);
-                } catch (e) { googleWord = ''; }
-              }
+        console.log('[Translate API] Found', forwardEdits.length, 'forward edits,', reverseEdits.length, 'reverse edits');
+        
+        const textLower = text.toLowerCase();
+        const seenKeys = new Set();
+        
+        // Process forward edits (normal direction)
+        for (const edit of forwardEdits) {
+          const srcLower = edit.sourceWord.toLowerCase();
+          const found = textLower.includes(srcLower);
+          if (found) {
+            let googleWord = edit.originalTranslation || '';
+            if (!googleWord) {
+              try {
+                googleWord = await mtWord(edit.sourceWord, edit.sourceLanguage, edit.targetLanguage);
+              } catch (e) { googleWord = ''; }
+            }
+            const key = srcLower + ':' + edit.targetLanguage;
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
               userEdits.push({
                 editId: edit._id,
                 sourceWord: edit.sourceWord,
@@ -146,6 +232,36 @@ router.post('/translate', async (req, res) => {
             }
           }
         }
+        
+        // Process reverse edits (swap direction: if saved EN→AR "mahmoud→حودا", 
+        // use as AR→EN "حودا→mahmoud" — sourceWord becomes userTranslation, editedTranslation becomes sourceWord to look for)
+        for (const edit of reverseEdits) {
+          // In reverse: the "editedTranslation" (target-language word) is what we look for in the source text
+          const editedLower = edit.editedTranslation.toLowerCase();
+          const found = textLower.includes(editedLower);
+          if (found) {
+            let googleWord = '';
+            try {
+              googleWord = await mtWord(edit.editedTranslation, edit.targetLanguage, edit.sourceLanguage);
+            } catch (e) { googleWord = ''; }
+            
+            // Swap: sourceWord becomes the user translation, editedTranslation becomes the source word
+            const key = editedLower + ':' + edit.sourceLanguage;
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
+              userEdits.push({
+                editId: edit._id + '_rev',
+                sourceWord: edit.editedTranslation,
+                targetLanguage: edit.sourceLanguage,
+                googleTranslation: googleWord,
+                userTranslation: edit.sourceWord,
+                usageCount: edit.usageCount
+              });
+            }
+          }
+        }
+        
+        console.log('[Translate API] Total matched edits (both directions):', userEdits.length);
       } catch (e) {
         console.error('[Translate API] User edit lookup error:', e.message, e.stack);
       }
@@ -246,7 +362,7 @@ router.post('/save-session', async (req, res) => {
       return res.status(401).json({ success: false, requireLogin: true, error: 'Login required to save history and track edits.' });
     }
 
-    const { source_text, source_lang, translations, category_id, session_id, title } = req.body;
+    const { source_text, source_lang, translations, category_id, session_id, title, glossary_words } = req.body;
     
     console.log('[save-session] Payload:', {
       source_text: source_text?.substring(0, 50),
@@ -290,6 +406,7 @@ router.post('/save-session', async (req, res) => {
         session.sourceLanguage = srcLang._id;
         session.translations = translationsMap;
         session.category = category_id || null;
+        session.glossaryWords = glossary_words || [];
         await session.save();
         console.log('[save-session] ✓ Updated existing session:', session._id);
         return res.json({ success: true, session_id: session._id, title: session.title });
@@ -306,6 +423,7 @@ router.post('/save-session', async (req, res) => {
       sourceLanguage: srcLang._id,
       translations: translationsMap,
       category: category_id || null,
+      glossaryWords: glossary_words || [],
       createdBy: req.user._id
     });
     console.log('[save-session] ✓ Created session:', session._id, 'title:', session.title);

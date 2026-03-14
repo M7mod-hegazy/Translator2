@@ -119,7 +119,32 @@
 .lang-arrow {
     display: flex;
     align-items: center;
-    padding: 0 4px;
+    padding: 6px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.lang-arrow:hover {
+    background: rgba(212, 175, 55, 0.12);
+    transform: scale(1.15);
+}
+.lang-arrow:active {
+    transform: scale(0.95);
+}
+
+.memory-manage-link {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-muted);
+    margin-left: 4px;
+    padding: 3px;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+    text-decoration: none;
+}
+.memory-manage-link:hover {
+    color: var(--gold-400);
+    background: rgba(212, 175, 55, 0.1);
 }
 
 .bar-divider {
@@ -209,15 +234,18 @@
 .translate-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 64px - 44px);
+    min-height: calc(100vh - 64px - 44px);
+    height: auto;
 }
 
 .translate-panels {
     display: flex;
+    flex-direction: row;
     flex: 1;
     min-height: 0;
     gap: var(--space-lg);
     padding: var(--space-lg) var(--space-2xl);
+    overflow: hidden;
 }
 
 .translate-panel {
@@ -241,6 +269,20 @@
 
 .source-panel {
     max-width: 50%;
+    min-height: 180px;
+    position: relative;
+}
+
+/* Resize Handle */
+.panel-resize-handle {
+    display: none;
+}
+
+/* Show resize handle only on desktop (horizontal layout) */
+@media (min-width: 769px) {
+  .panel-resize-handle {
+    display: none; /* Horizontal layout doesn't need vertical resize */
+  }
 }
 
 .translate-targets {
@@ -296,7 +338,8 @@
     font-size: var(--text-md);
     line-height: 1.7;
     padding: var(--space-sm) var(--space-md);
-    resize: none;
+    resize: vertical;
+    min-height: 80px;
     outline: none;
 }
 
@@ -511,6 +554,13 @@
     flex-direction: column;
     flex-shrink: 0;
     overflow: hidden;
+}
+
+/* Smart sizing: reduce panels min-height when bars are visible */
+.translate-container:has(.gloss-bar[style*="flex"]) .translate-panels,
+.translate-container:has(.memory-bar[style*="flex"]) .translate-panels {
+    flex: 1;
+    min-height: 200px;
 }
 
 .drawer-header {
@@ -1162,6 +1212,7 @@
         padding: 0;
         flex: 1;
         display: flex;
+        overflow: visible;
     }
 
     .translate-panel {

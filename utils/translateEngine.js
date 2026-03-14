@@ -213,6 +213,8 @@ async function applyGlossaryReplacement(fullTranslation, matches, sourceLang, ta
     const mtWordResult = await mtWord(m.sourceWord.toLowerCase(), sourceLang, targetLang);
     const mtClean = mtWordResult.replace(/[.!?,;:،。]+$/, '');
     
+    console.log('[applyGlossaryReplacement] Source:', m.sourceWord, '→ MT says:', mtWordResult, '→ Glossary:', glossaryTarget);
+    
     // Try exact match replacement
     let replaced = false;
     for (const candidate of [mtWordResult, mtClean]) {
@@ -222,7 +224,72 @@ async function applyGlossaryReplacement(fullTranslation, matches, sourceLang, ta
       if (idx !== -1) {
         result = result.substring(0, idx) + glossaryTarget + result.substring(idx + candidate.length);
         replaced = true;
+        console.log('[applyGlossaryReplacement] Exact match replaced');
         break;
+      }
+    }
+    
+    // Try matching the MT result when Google splits terms (e.g., "kill22" → "قتل 22")
+    // Split the MT word result and see if all parts appear consecutively in the output
+    if (!replaced && mtClean.includes(' ')) {
+      const mtParts = mtClean.split(/\s+/);
+      const resultLower = result.toLowerCase();
+      const firstPartIdx = resultLower.indexOf(mtParts[0].toLowerCase());
+      if (firstPartIdx !== -1) {
+        // Find the extent of all consecutive parts
+        let searchStart = firstPartIdx;
+        let lastEndIdx = firstPartIdx + mtParts[0].length;
+        let allFound = true;
+        for (let p = 1; p < mtParts.length; p++) {
+          const nextIdx = resultLower.indexOf(mtParts[p].toLowerCase(), searchStart);
+          if (nextIdx !== -1 && nextIdx <= lastEndIdx + 2) {
+            lastEndIdx = nextIdx + mtParts[p].length;
+          } else {
+            allFound = false;
+            break;
+          }
+        }
+        if (allFound) {
+          result = result.substring(0, firstPartIdx) + glossaryTarget + result.substring(lastEndIdx);
+          replaced = true;
+          console.log('[applyGlossaryReplacement] Multi-word MT replaced');
+        }
+      }
+    }
+    
+    // Also try: source word might contain numbers that Google keeps as-is
+    // e.g., "kill22" → Google outputs "قتل22" or "قتل 22" — find any segment containing the number part
+    if (!replaced) {
+      const numberMatch = m.sourceWord.match(/(\d+)/);
+      if (numberMatch) {
+        const numPart = numberMatch[1];
+        const resultWords = result.split(/(\s+)/);
+        let foundIdx = -1;
+        let spanStart = -1;
+        let spanEnd = -1;
+        let pos = 0;
+        
+        for (let w = 0; w < resultWords.length; w++) {
+          if (resultWords[w].includes(numPart) || 
+              (w > 0 && resultWords[w-1] && !resultWords[w-1].trim() && w > 1 && resultWords[w].includes(numPart))) {
+            // Found the number — look for adjacent non-number text that's part of MT result
+            spanEnd = pos + resultWords[w].length;
+            spanStart = pos;
+            // Extend backwards to capture the translated word part
+            if (w >= 2 && !resultWords[w-1].trim()) {
+              spanStart = pos - resultWords[w-1].length - (resultWords[w-2] || '').length;
+            }
+            foundIdx = w;
+            break;
+          }
+          pos += resultWords[w].length;
+        }
+        
+        if (foundIdx !== -1 && spanStart >= 0) {
+          result = result.substring(0, spanStart) + glossaryTarget + result.substring(spanEnd);
+          replaced = true;
+          console.log('[applyGlossaryReplacement] Number-based replaced');
+        }
       }
     }
     

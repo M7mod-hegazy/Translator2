@@ -79,6 +79,8 @@ router.get('/', ensureAuth, async (req, res) => {
           }
         });
       }
+      // Copy glossaryWords from DB
+      obj.glossaryWords = obj.glossaryWords || [];
       
       return obj;
     });
@@ -169,7 +171,8 @@ router.get('/search', ensureAuth, async (req, res) => {
         source_lang: s.sourceLanguage?.name || '',
         word_count: s.wordCount || 0,
         lang_codes: Object.keys(translations),
-        appliedEdits: appliedEdits
+        appliedEdits: appliedEdits,
+        glossaryWords: s.glossaryWords || []
       };
     });
     

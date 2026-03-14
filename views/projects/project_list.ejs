@@ -65,11 +65,18 @@
     .card-langs { display: flex; gap: 3px; flex-wrap: wrap; }
     .card-lang-pill { padding: 2px 7px; font-size: 9px; font-weight: 700; text-transform: uppercase; border-radius: var(--radius-pill); background: rgba(212,175,55,0.08); color: var(--gold-400); border: 1px solid rgba(212,175,55,0.12); letter-spacing: .3px; }
 
-    /* Applied Edits Chips */
-    .card-edits { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 0; padding-top: 8px; border-top: 1px dashed rgba(212,175,55,0.1); }
-    .card-edits-label { font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    /* Applied Edits & Glossary Cards */
+    .card-cat-section { margin: 8px 0 0; padding-top: 8px; border-top: 1px dashed rgba(212,175,55,0.1); }
+    .card-cat-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+    .card-cat-label { font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 2px; }
     .card-edit-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; background: rgba(138, 43, 226, 0.1); color: #b388ff; border: 1px solid rgba(138, 43, 226, 0.2); border-radius: 4px; padding: 2px 6px; }
     .card-edit-chip i { width: 10px; height: 10px; }
+    .card-gloss-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; background: rgba(212,175,55,0.08); color: var(--gold-300); border: 1px solid rgba(212,175,55,0.2); border-radius: 4px; padding: 2px 6px; }
+    .card-gloss-chip i { width: 10px; height: 10px; }
+    .card-more-btn { display: inline-flex; align-items: center; font-size: 9px; color: var(--text-muted); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 2px 7px; cursor: pointer; transition: all .2s; user-select: none; }
+    .card-more-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-secondary); }
+    .card-extra-items { display: none; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+    .card-extra-items.is-expanded { display: flex; }
 
     mark.hl { background: rgba(212,175,55,0.3); color: var(--text-primary); border-radius: 2px; padding: 0 1px; }
 
@@ -156,8 +163,8 @@
       .card-meta-item i { display: none; }
       .card-langs { gap: 2px; }
       .card-lang-pill { font-size: 7px; padding: 1px 4px; }
-      .card-edits { margin-top: 6px; padding-top: 6px; }
-      .card-edit-chip { font-size: 8px; padding: 1px 4px; }
+      .card-cat-section { margin-top: 6px; padding-top: 6px; }
+      .card-edit-chip, .card-gloss-chip { font-size: 8px; padding: 1px 4px; }
       .pagination-nav { gap: 4px; flex-wrap: wrap; }
       .pg-btn { padding: 6px 10px; font-size: 11px; }
     }
@@ -218,15 +225,39 @@
             <% var trans = s.translations || {}; var codes = Object.keys(trans); if (codes.length) { var firstCode = codes[0]; %>
             <p class="card-translation"><span class="card-trans-label"><%= firstCode.toUpperCase() %></span> <%= (trans[firstCode] || '').substring(0, 90) %><%= (trans[firstCode] || '').length > 90 ? '…' : '' %></p>
             <% } %>
-            <% if (s.appliedEdits && s.appliedEdits.length > 0) { %>
-            <div class="card-edits">
-              <span class="card-edits-label">CAT Edits:</span>
-              <% s.appliedEdits.forEach(function(edit) { %>
-              <span class="card-edit-chip" title="User Translation Edit">
-                <i data-lucide="brain-circuit"></i>
-                <%= edit.sourceWord %> &rarr; <%= edit.userTranslation %>
-              </span>
-              <% }); %>
+            <% 
+              var allEdits = s.appliedEdits || [];
+              var allGloss = s.glossaryWords || [];
+              var hasCAT = allEdits.length > 0 || allGloss.length > 0;
+            %>
+            <% if (hasCAT) { %>
+            <div class="card-cat-section">
+              <div class="card-cat-row">
+                <% if (allEdits.length > 0) { %>
+                <span class="card-edit-chip" title="CAT Memory">
+                  <i data-lucide="brain-circuit"></i>
+                  <%= allEdits[0].sourceWord %> &rarr; <%= allEdits[0].userTranslation %>
+                </span>
+                <% } %>
+                <% if (allGloss.length > 0) { %>
+                <span class="card-gloss-chip" title="Glossary">
+                  <i data-lucide="book-open"></i>
+                  <%= allGloss[0].source %> &rarr; <%= allGloss[0]['term_' + (Object.keys(s.translations || {})[0] || 'ar')] || allGloss[0].term_ar || allGloss[0].term_en %>
+                </span>
+                <% } %>
+                <% var extraCount = Math.max(0, allEdits.length - 1) + Math.max(0, allGloss.length - 1); %>
+                <% if (extraCount > 0) { %>
+                <span class="card-more-btn" onclick="event.stopPropagation();this.nextElementSibling.classList.toggle('is-expanded');this.textContent=this.textContent.indexOf('+')>-1?'−':'+ <%= extraCount %>';">+ <%= extraCount %></span>
+                <div class="card-extra-items">
+                  <% allEdits.slice(1).forEach(function(edit) { %>
+                  <span class="card-edit-chip"><i data-lucide="brain-circuit"></i> <%= edit.sourceWord %> &rarr; <%= edit.userTranslation %></span>
+                  <% }); %>
+                  <% allGloss.slice(1).forEach(function(g) { %>
+                  <span class="card-gloss-chip"><i data-lucide="book-open"></i> <%= g.source %> &rarr; <%= g['term_' + (Object.keys(s.translations || {})[0] || 'ar')] || g.term_ar || g.term_en %></span>
+                  <% }); %>
+                </div>
+                <% } %>
+              </div>
             </div>
             <% } %>
           </div>
@@ -356,10 +387,38 @@
             var langPills = (r.lang_codes || []).map(function(c) { return '<span class="card-lang-pill">' + esc(c) + '</span>'; }).join('');
             
             var editsHtml = '';
-            if (r.appliedEdits && r.appliedEdits.length > 0) {
-              editsHtml = '<div class="card-edits"><span class="card-edits-label">CAT Edits:</span>' + r.appliedEdits.map(function(edit) {
-                return '<span class="card-edit-chip" title="User Translation Edit"><i data-lucide="brain-circuit"></i> ' + esc(edit.sourceWord) + ' &rarr; ' + esc(edit.userTranslation) + '</span>';
-              }).join('') + '</div>';
+            var memoryArr = r.appliedEdits || [];
+            var glossArr = r.glossaryWords || [];
+            var hasAny = memoryArr.length > 0 || glossArr.length > 0;
+            
+            if (hasAny) {
+              var firstItems = '';
+              if (memoryArr.length > 0) {
+                firstItems += '<span class="card-edit-chip"><i data-lucide="brain-circuit"></i> ' + esc(memoryArr[0].sourceWord) + ' &rarr; ' + esc(memoryArr[0].userTranslation) + '</span>';
+              }
+              if (glossArr.length > 0) {
+                var gTarget = glossArr[0].term_ar || glossArr[0].term_en || '';
+                firstItems += '<span class="card-gloss-chip"><i data-lucide="book-open"></i> ' + esc(glossArr[0].source || '') + ' &rarr; ' + esc(gTarget) + '</span>';
+              }
+              
+              var extraCount = Math.max(0, memoryArr.length - 1) + Math.max(0, glossArr.length - 1);
+              var moreBtn = '';
+              var extraItems = '';
+              
+              if (extraCount > 0) {
+                moreBtn = '<span class="card-more-btn" onclick="event.stopPropagation();var ex=this.nextElementSibling;ex.classList.toggle(\'is-expanded\');this.textContent=this.textContent.indexOf(\'+\')>-1?\'\u2212\':\'+' + extraCount + '\'">+ ' + extraCount + '</span>';
+                var extraParts = [];
+                memoryArr.slice(1).forEach(function(edit) {
+                  extraParts.push('<span class="card-edit-chip"><i data-lucide="brain-circuit"></i> ' + esc(edit.sourceWord) + ' &rarr; ' + esc(edit.userTranslation) + '</span>');
+                });
+                glossArr.slice(1).forEach(function(g) {
+                  var gt = g.term_ar || g.term_en || '';
+                  extraParts.push('<span class="card-gloss-chip"><i data-lucide="book-open"></i> ' + esc(g.source || '') + ' &rarr; ' + esc(gt) + '</span>');
+                });
+                extraItems = '<div class="card-extra-items">' + extraParts.join('') + '</div>';
+              }
+              
+              editsHtml = '<div class="card-cat-section"><div class="card-cat-row">' + firstItems + moreBtn + extraItems + '</div></div>';
             }
 
             return '<div class="session-card" data-id="' + r.id + '" onclick="heroExpand(' + r.id + ',this)">'

@@ -24,6 +24,13 @@ const TranslationSessionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category'
   },
+  glossaryWords: [{
+    term_id: String,
+    source: String,
+    term_en: String,
+    term_ar: String,
+    term_es: String
+  }],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
