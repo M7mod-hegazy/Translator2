@@ -251,6 +251,24 @@
   </main>
   </div>
 
+  <div class="modal-backdrop" id="delete-modal-backdrop" onclick="ConfirmDelete.cancel()"></div>
+  <div class="modal delete-modal" id="delete-modal">
+    <div class="modal-header" style="border-bottom:none;padding-bottom:0;">
+      <h3 id="delete-modal-title" style="color:var(--error);">Delete Item</h3>
+      <button class="modal-close" onclick="ConfirmDelete.cancel()">✕</button>
+    </div>
+    <div class="modal-body" style="padding-top:var(--space-sm);">
+      <p id="delete-modal-msg" style="color:var(--text-secondary);font-size:var(--text-sm);line-height:1.5;margin:0;">
+        Are you sure? This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="ConfirmDelete.cancel()">Cancel</button>
+      <button class="btn btn-danger" id="delete-modal-confirm" onclick="ConfirmDelete.exec()">
+        <i data-lucide="trash-2"></i> Delete
+      </button>
+    </div>
+  </div>
+
   <script src="/js/app.js?v=2"></script>
   <script>
     (function() {

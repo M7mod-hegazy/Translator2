@@ -29,11 +29,27 @@ function normalizeLookup(value) {
     .toLowerCase();
 }
 
-function textIncludesNormalized(text, term) {
+function textContainsNormalizedTerm(text, term) {
   const normalizedText = normalizeLookup(text);
   const normalizedTerm = normalizeLookup(term);
   if (!normalizedText || !normalizedTerm) return false;
-  return normalizedText.includes(normalizedTerm);
+  const textTokens = normalizedText.split(' ').filter(Boolean);
+  const termTokens = normalizedTerm.split(' ').filter(Boolean);
+  if (!textTokens.length || !termTokens.length) return false;
+  if (termTokens.length === 1) {
+    return textTokens.includes(termTokens[0]);
+  }
+  for (let i = 0; i <= textTokens.length - termTokens.length; i++) {
+    let matched = true;
+    for (let j = 0; j < termTokens.length; j++) {
+      if (textTokens[i + j] !== termTokens[j]) {
+        matched = false;
+        break;
+      }
+    }
+    if (matched) return true;
+  }
+  return false;
 }
 
 // Speech-to-text using Groq Whisper (free tier)
@@ -279,14 +295,13 @@ router.post('/translate', async (req, res) => {
         
         console.log('[Translate API] Found', forwardEdits.length, 'forward edits,', reverseEdits.length, 'reverse edits');
         
-        const textLower = text.toLowerCase();
         const seenKeys = new Set();
         
         // Process forward edits (normal direction)
         for (const edit of forwardEdits) {
           if (!isRecentMemoryEntry(edit)) continue;
           const srcLower = edit.sourceWord.toLowerCase();
-          const found = textLower.includes(srcLower) || textIncludesNormalized(text, edit.sourceWord);
+          const found = textContainsNormalizedTerm(text, edit.sourceWord);
           if (found) {
             const originalWord = edit.originalTranslation || '';
             let currentGoogleWord = '';
@@ -318,7 +333,7 @@ router.post('/translate', async (req, res) => {
           if (!isRecentMemoryEntry(edit)) continue;
           // In reverse: the "editedTranslation" (target-language word) is what we look for in the source text
           const editedLower = edit.editedTranslation.toLowerCase();
-          const found = textLower.includes(editedLower) || textIncludesNormalized(text, edit.editedTranslation);
+          const found = textContainsNormalizedTerm(text, edit.editedTranslation);
           if (found) {
             const originalWord = edit.originalTranslation || '';
             let currentGoogleWord = '';
@@ -370,54 +385,7 @@ router.post('/translate', async (req, res) => {
             edits: langEdits,
             targetLang: tgt
           });
-          const fallbackApplied = [];
-          if (tgt === 'ar' && resultItem.full_translation) {
-            const appliedIds = new Set((hybrid.applied || []).map(a => String(a.editId || '')));
-            let mergedArabic = hybrid.text || resultItem.full_translation;
-            for (const edit of langEdits) {
-              const editId = String(edit.editId || '');
-              if (appliedIds.has(editId)) continue;
-              const replacement = String(edit.userTranslation || '').trim();
-              if (!replacement) continue;
-              const candidates = Array.from(new Set([
-                String(edit.currentTranslation || '').trim(),
-                String(edit.googleTranslation || '').trim(),
-                String(edit.originalTranslation || '').trim()
-              ].filter(Boolean)));
-              for (const candidate of candidates) {
-                const candidateNorm = normalizeLookup(candidate);
-                if (!candidateNorm) continue;
-                let replaced = false;
-                const tokens = mergedArabic.split(/(\s+)/).map(token => {
-                  if (!token || !token.trim()) return token;
-                  if (replaced) return token;
-                  const trailingMatch = token.match(/([.!?,;:،。؟]+)$/);
-                  const trailing = trailingMatch ? trailingMatch[1] : '';
-                  const base = trailing ? token.slice(0, -trailing.length) : token;
-                  const baseNorm = normalizeLookup(base);
-                  if (baseNorm === candidateNorm) {
-                    replaced = true;
-                    return replacement + trailing;
-                  }
-                  if (baseNorm === `و${candidateNorm}` && base.startsWith('و')) {
-                    replaced = true;
-                    return `و${replacement}` + trailing;
-                  }
-                  return token;
-                });
-                if (replaced) {
-                  mergedArabic = tokens.join('');
-                  fallbackApplied.push({
-                    editId: edit.editId,
-                    from: candidate,
-                    to: replacement
-                  });
-                  break;
-                }
-              }
-            }
-            resultItem.full_translation = mergedArabic;
-          } else if (tgt === 'ar' && hybrid.text) {
+          if (tgt === 'ar' && hybrid.text) {
             resultItem.full_translation = hybrid.text;
           }
           const hintByEditId = new Map();
@@ -433,7 +401,7 @@ router.post('/translate', async (req, res) => {
               edit.contextTranslation = hint;
             }
           }
-          resultItem.memoryHints = (hybrid.applied || []).concat(fallbackApplied).map(a => ({
+          resultItem.memoryHints = (hybrid.applied || []).map(a => ({
             editId: a.editId,
             from: a.from,
             to: a.to
@@ -856,11 +824,10 @@ router.get('/user-edits/match', ensureAuth, async (req, res) => {
       targetLanguage: target_lang
     }).sort({ usageCount: -1, lastUsedAt: -1 });
     
-    const textLower = text.toLowerCase();
     const matches = [];
     
     for (const edit of savedEdits) {
-      if (textLower.includes(edit.sourceWord.toLowerCase())) {
+      if (textContainsNormalizedTerm(text, edit.sourceWord)) {
         matches.push({
           editId: edit._id,
           sourceWord: edit.sourceWord,

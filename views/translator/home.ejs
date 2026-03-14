@@ -644,13 +644,32 @@
     }
 
     function renderArabicOutputWithMemory(out, fullText, data, code) {
+      function renderInteractiveChunk(chunkText) {
+        var parts = String(chunkText || '').split(/(\s+)/);
+        var htmlParts = [];
+        for (var pi = 0; pi < parts.length; pi++) {
+          var part = parts[pi];
+          if (!part) continue;
+          if (!part.trim()) {
+            htmlParts.push(part.replace(/\n/g, '<br>'));
+            continue;
+          }
+          var cleanWord = part.replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,'').toLowerCase();
+          var dataset = ' data-lang="' + code + '"'
+            + ' data-google="' + escapeHtml(cleanWord || part) + '"'
+            + ' data-source="' + escapeHtml(cleanWord || part) + '"';
+          htmlParts.push('<span class="tgt-word"' + dataset + ' onclick="openEditPopover(this)">' + escapeHtml(part) + '</span>');
+        }
+        return htmlParts.join('');
+      }
+
       var baseText = String(data.google_full_translation || fullText || '');
       var hints = (data.memoryHints || []).filter(function(h) {
         var hid = String(h && h.editId ? h.editId : '');
         return h && hid && h.to && memoryChipStates[hid] !== false;
       });
       if (!hints.length) {
-        out.innerHTML = escapeHtml(baseText).replace(/\n/g, '<br>');
+        out.innerHTML = renderInteractiveChunk(baseText);
         return;
       }
       var editById = {};
@@ -695,7 +714,7 @@
         }
       }
       if (!ranges.length) {
-        out.innerHTML = escapeHtml(renderedText).replace(/\n/g, '<br>');
+        out.innerHTML = renderInteractiveChunk(renderedText);
         return;
       }
       ranges.sort(function(a, b) { return a.start - b.start; });
@@ -704,7 +723,7 @@
       for (var ri = 0; ri < ranges.length; ri++) {
         var range = ranges[ri];
         if (range.start > cursor) {
-          html += escapeHtml(renderedText.slice(cursor, range.start)).replace(/\n/g, '<br>');
+          html += renderInteractiveChunk(renderedText.slice(cursor, range.start));
         }
         var editId = String(range.hint.editId || '');
         var edit = editById[editId] || {};
@@ -720,7 +739,7 @@
         cursor = range.end;
       }
       if (cursor < renderedText.length) {
-        html += escapeHtml(renderedText.slice(cursor)).replace(/\n/g, '<br>');
+        html += renderInteractiveChunk(renderedText.slice(cursor));
       }
       out.innerHTML = html;
     }
@@ -1176,6 +1195,37 @@
            
            // Turn on the chip
            memoryChipStates[eid] = true;
+
+           if (targetLang === 'ar' && lastTranslations && lastTranslations[targetLang]) {
+             var arData = lastTranslations[targetLang];
+             var nextHints = Array.isArray(arData.memoryHints) ? arData.memoryHints.slice() : [];
+             nextHints = nextHints.filter(function(h) { return String(h && h.editId ? h.editId : '') !== String(eid); });
+             var optimisticHint = {
+               editId: String(eid),
+               from: String(res.edit.originalTranslation || originalGoogle || '').trim(),
+               to: String(res.edit.editedTranslation || newTranslation || '').trim()
+             };
+             if (optimisticHint.from && optimisticHint.to) {
+               nextHints.unshift(optimisticHint);
+             }
+             arData.memoryHints = nextHints;
+             if (!arData.google_full_translation && arData.full_translation) {
+               arData.google_full_translation = arData.full_translation;
+             }
+           }
+
+           if (currentEditWordEl) {
+             currentEditWordEl.setAttribute('data-edit-id', String(eid));
+             currentEditWordEl.setAttribute('data-source', String(res.edit.sourceWord || sourceWord || ''));
+             currentEditWordEl.setAttribute('data-saved', String(res.edit.editedTranslation || newTranslation || ''));
+             currentEditWordEl.classList.add('has-user-edit');
+             currentEditWordEl.classList.add('is-user-edited');
+             if (!currentEditWordEl.querySelector('.memory-dot')) {
+               var memoryDot = document.createElement('span');
+               memoryDot.className = 'memory-dot';
+               currentEditWordEl.appendChild(memoryDot);
+             }
+           }
            
            renderMemoryChips(userEditsState);
            rerenderAllOutputs();

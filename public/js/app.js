@@ -112,8 +112,17 @@ const ConfirmDelete = {
   _callback: null,
   
   show(title, message, onConfirm) {
-    document.getElementById('delete-modal-title').textContent = title || 'Delete Item';
-    document.getElementById('delete-modal-msg').textContent = message || 'Are you sure? This action cannot be undone.';
+    const titleEl = document.getElementById('delete-modal-title');
+    const msgEl = document.getElementById('delete-modal-msg');
+    if (!titleEl || !msgEl) {
+      const confirmed = window.confirm(message || 'Are you sure? This action cannot be undone.');
+      if (confirmed && typeof onConfirm === 'function') {
+        onConfirm();
+      }
+      return;
+    }
+    titleEl.textContent = title || 'Delete Item';
+    msgEl.textContent = message || 'Are you sure? This action cannot be undone.';
     this._callback = onConfirm;
     Modal.open('delete-modal');
   },

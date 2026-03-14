@@ -250,7 +250,24 @@ function findGlossaryMatches(text, glossary) {
  * Post-edit: find what MT produced for each glossary source word
  * and replace it with the glossary target term
  */
-async function applyGlossaryReplacement(fullTranslation, matches, sourceLang, targetLang) {
+function findAllCaseInsensitivePositions(text, needle) {
+  const source = String(text || '');
+  const token = String(needle || '');
+  if (!source || !token) return [];
+  const sourceLower = source.toLowerCase();
+  const tokenLower = token.toLowerCase();
+  const positions = [];
+  let from = 0;
+  while (true) {
+    const idx = sourceLower.indexOf(tokenLower, from);
+    if (idx === -1) break;
+    positions.push(idx);
+    from = idx + tokenLower.length;
+  }
+  return positions;
+}
+
+async function applyGlossaryReplacement(fullTranslation, matches, sourceLang, targetLang, sourceText = '') {
   const tgtField = `term${targetLang.charAt(0).toUpperCase() + targetLang.slice(1)}`;
   let result = fullTranslation;
   const mtWordResults = new Map();
@@ -268,9 +285,6 @@ async function applyGlossaryReplacement(fullTranslation, matches, sourceLang, ta
     const glossaryTarget = m[tgtField];
     if (!glossaryTarget) continue;
     
-    // Skip if glossary target already in output
-    if (result.toLowerCase().includes(glossaryTarget.toLowerCase())) continue;
-    
     // Get what MT translates this word to in isolation (CACHED)
     const mtWordResult = mtWordResults.get((m.sourceWord || '').toLowerCase()) || await mtWord(m.sourceWord.toLowerCase(), sourceLang, targetLang);
     const mtClean = mtWordResult.replace(/[.!?,;:،。]+$/, '');
@@ -282,8 +296,17 @@ async function applyGlossaryReplacement(fullTranslation, matches, sourceLang, ta
     for (const candidate of [mtWordResult, mtClean]) {
       if (!candidate) continue;
       
-      const idx = result.toLowerCase().indexOf(candidate.toLowerCase());
-      if (idx !== -1) {
+      const positions = findAllCaseInsensitivePositions(result, candidate);
+      if (positions.length > 0) {
+        let idx = positions[0];
+        if (positions.length > 1 && sourceText && Number.isFinite(m.start) && sourceText.length > 0) {
+          const expectedIdx = Math.round((m.start / sourceText.length) * result.length);
+          idx = positions.reduce((best, pos) => {
+            const bestDist = Math.abs(best - expectedIdx);
+            const posDist = Math.abs(pos - expectedIdx);
+            return posDist < bestDist ? pos : best;
+          }, positions[0]);
+        }
         result = result.substring(0, idx) + glossaryTarget + result.substring(idx + candidate.length);
         replaced = true;
         console.log('[applyGlossaryReplacement] Exact match replaced');
@@ -356,7 +379,7 @@ async function applyGlossaryReplacement(fullTranslation, matches, sourceLang, ta
     }
     
     // Stem matching fallback
-    if (!replaced && mtClean.length >= 3) {
+    if (!replaced && targetLang !== 'ar' && mtClean.length >= 3) {
       const stemLen = Math.max(2, Math.floor(mtClean.length * 0.6));
       const stem = mtClean.substring(0, stemLen);
       const stemRegex = new RegExp(stem + '\\S*', 'i');
@@ -369,7 +392,7 @@ async function applyGlossaryReplacement(fullTranslation, matches, sourceLang, ta
     }
     
     // For non-Latin output: character overlap matching
-    if (!replaced && mtClean.split('').some(c => c.charCodeAt(0) > 127) && mtClean.length >= 2) {
+    if (!replaced && targetLang !== 'ar' && mtClean.split('').some(c => c.charCodeAt(0) > 127) && mtClean.length >= 2) {
       const wordsInOutput = result.match(/\S+/g) || [];
       for (const word of wordsInOutput) {
         if (word === glossaryTarget) continue;
@@ -407,7 +430,7 @@ async function translateWithGlossary(text, sourceLang, targetLang, options = {})
   
   // Apply glossary replacements
   if (matches && matches.length > 0) {
-    fullTranslation = await applyGlossaryReplacement(fullTranslation, matches, sourceLang, targetLang);
+    fullTranslation = await applyGlossaryReplacement(fullTranslation, matches, sourceLang, targetLang, text);
   }
   
   // Build segments using ALL detected matches

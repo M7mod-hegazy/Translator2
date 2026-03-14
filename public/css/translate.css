@@ -406,7 +406,7 @@
 .translate-output[data-dir="rtl"] {
     direction: rtl;
     text-align: right;
-    unicode-bidi: plaintext;
+    unicode-bidi: isolate;
 }
 
 /* Glossary highlight */
@@ -583,7 +583,7 @@
 .translate-output:not([data-dir="rtl"]) {
     direction: ltr;
     text-align: left;
-    unicode-bidi: plaintext;
+    unicode-bidi: isolate;
 }
 
 /* Drawer */
@@ -845,7 +845,7 @@
 /* Wrappers for individual target words */
 .tgt-word {
     position: relative;
-    display: inline-block;
+    display: inline;
     cursor: pointer;
     transition: color 0.2s, background 0.2s;
     border-radius: 0.25em;
