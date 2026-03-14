@@ -98,7 +98,9 @@ async function googleTranslate(text, sourceLang, targetLang) {
 }
 
 /**
- * Load glossary terms with ALL language fields
+ * Load glossary terms with ALL language fields.
+ * Handles multi-variant terms: splits on " / " to create separate lookup keys.
+ * Also handles parenthetical content like "(عام/سياسي)" by stripping it for a clean match.
  */
 async function lookupGlossaryAll(categoryId, sourceLangCode) {
   if (!categoryId) return {};
@@ -116,24 +118,74 @@ async function lookupGlossaryAll(categoryId, sourceLangCode) {
     console.log('[lookupGlossaryAll] Found terms:', terms.length);
     
     const termDict = {};
+    
     for (const t of terms) {
       const srcVal = t[srcField];
-      if (srcVal) {
-        termDict[srcVal.toLowerCase().trim()] = {
-          id: t._id,
-          sourceTerm: srcVal,
-          termEn: t.termEn || '',
-          termAr: t.termAr || '',
-          termEs: t.termEs || ''
-        };
+      if (!srcVal) continue;
+      
+      const termData = {
+        id: t._id,
+        sourceTerm: srcVal,
+        termEn: t.termEn || '',
+        termAr: t.termAr || '',
+        termEs: t.termEs || ''
+      };
+      
+      // Generate all possible match keys from this term
+      const keys = generateMatchKeys(srcVal);
+      
+      for (const key of keys) {
+        const k = key.toLowerCase().trim();
+        if (k.length >= 1) {
+          // Longer/more-specific keys take priority (don't overwrite with shorter)
+          if (!termDict[k] || termDict[k].sourceTerm.length <= srcVal.length) {
+            termDict[k] = termData;
+          }
+        }
       }
     }
-    console.log('[lookupGlossaryAll] Term dict keys:', Object.keys(termDict));
+    console.log('[lookupGlossaryAll] Term dict keys:', Object.keys(termDict).length, '(from', terms.length, 'terms)');
     return termDict;
   } catch (e) {
     console.error('[lookupGlossaryAll] Error:', e.message);
     return {};
   }
+}
+
+/**
+ * Generate all searchable keys from a term that may contain:
+ * - Multiple variants: "To Testify / To Appear before Parliament"
+ * - Parenthetical notes: "عفو (عام/سياسي)" → "عفو"
+ * - Slashes within: "Condemn / Denounce" → ["Condemn", "Denounce"]
+ */
+function generateMatchKeys(termValue) {
+  const keys = new Set();
+  
+  // 1. The full original value is always a key
+  keys.add(termValue.trim());
+  
+  // 2. Strip parenthetical content: "عفو (عام/سياسي)" → "عفو"
+  const withoutParens = termValue.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  if (withoutParens && withoutParens !== termValue.trim()) {
+    keys.add(withoutParens);
+  }
+  
+  // 3. Split by " / " (surrounded by spaces) for true alternatives
+  const slashParts = termValue.split(/\s*\/\s*/);
+  if (slashParts.length > 1) {
+    for (const part of slashParts) {
+      const cleaned = part.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+      if (cleaned.length >= 1) {
+        keys.add(cleaned);
+      }
+      // Also add the raw part (with parens)
+      if (part.trim().length >= 1) {
+        keys.add(part.trim());
+      }
+    }
+  }
+  
+  return Array.from(keys);
 }
 
 /**

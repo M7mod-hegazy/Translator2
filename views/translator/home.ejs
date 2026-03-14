@@ -108,19 +108,6 @@
             <div class="memory-chips" id="memory-chips"></div>
           </div>
 
-          <!-- Glossary Detection Bar — above panels -->
-          <div class="gloss-bar" id="gloss-bar" style="display:none;">
-            <div class="gloss-bar-left">
-              <label class="gloss-switch" id="gloss-master">
-                <input type="checkbox" id="gloss-master-cb" checked>
-                <span class="gloss-slider"></span>
-              </label>
-              <span class="gloss-bar-label">Glossary</span>
-              <span class="gloss-bar-count" id="gloss-bar-count">0</span>
-            </div>
-            <div class="gloss-chips" id="gloss-chips"></div>
-          </div>
-
           <div class="translate-panels" id="translate-panels">
             <div class="translate-panel source-panel" id="source-panel">
               <div class="panel-header">
@@ -156,6 +143,19 @@
               </div>
             </div>
             <div class="translate-targets" id="translate-targets"></div>
+          </div>
+
+          <!-- Glossary Detection Bar — below panels -->
+          <div class="gloss-bar" id="gloss-bar" style="display:none;">
+            <div class="gloss-bar-left">
+              <label class="gloss-switch" id="gloss-master">
+                <input type="checkbox" id="gloss-master-cb" checked>
+                <span class="gloss-slider"></span>
+              </label>
+              <span class="gloss-bar-label">Glossary</span>
+              <span class="gloss-bar-count" id="gloss-bar-count">0</span>
+            </div>
+            <div class="gloss-chips" id="gloss-chips"></div>
           </div>
 
           <!-- Terms Drawer -->
@@ -624,94 +624,100 @@
 
     function rerenderAllOutputs() {
       console.log('[DEBUG][rerender] ──── RERENDER START ────');
-      console.log('[DEBUG][rerender] lastTranslations keys:', Object.keys(lastTranslations || {}));
-      console.log('[DEBUG][rerender] userEditsState (flat array):', JSON.stringify((userEditsState || []).map(function(e) { return { id: e.editId, src: e.sourceWord, google: e.googleTranslation, user: e.userTranslation, lang: e.targetLanguage }; })));
-      console.log('[DEBUG][rerender] memoryChipStates:', JSON.stringify(memoryChipStates));
-      
       if (!lastTranslations) return;
+      
       for (var code in lastTranslations) {
         if (code === 'undefined' || !code) continue;
         var data = lastTranslations[code];
         var out = document.getElementById('output-' + code);
         if (!out || !data) continue;
         
-        var wordsArray = (data.full_translation || '').split(/(\s+)/);
+        var fullText = data.full_translation || '';
+        var wordsArray = fullText.split(/(\s+)/);
         var htmlParts = [];
         
-        // userEditsState is a FLAT ARRAY — filter by targetLanguage for the current panel
-        var langEdits = (userEditsState || []).filter(function(e) { return e.targetLanguage === code; });
-        console.log('[DEBUG][rerender] Panel ' + code + ': langEdits count:', langEdits.length);
-        langEdits.forEach(function(e) {
-          console.log('[DEBUG][rerender]   Edit: src="' + e.sourceWord + '" google="' + e.googleTranslation + '" user="' + e.userTranslation + '" chipOn:', memoryChipStates[e.editId]);
-        });
+        // ── Step 1: Build glossary word-index set ──
+        // Pre-scan which word indices belong to glossary terms (supports multi-word)
+        var glossaryWordMap = {}; // wIdx → { source, termId }
+        if (data.segments && useGlossary) {
+          for (var si = 0; si < data.segments.length; si++) {
+            var seg = data.segments[si];
+            if (!seg || !seg.is_glossary || chipStates[seg.term_id] === false) continue;
+            
+            var termForLang = (seg['term_' + code] || seg.translation || '').trim();
+            if (!termForLang) continue;
+            
+            // Find this term in the full translation text (case-insensitive)
+            var termLower = termForLang.toLowerCase();
+            var fullLower = fullText.toLowerCase();
+            var searchPos = 0;
+            while (true) {
+              var foundAt = fullLower.indexOf(termLower, searchPos);
+              if (foundAt === -1) break;
+              searchPos = foundAt + 1;
+              
+              // Map character positions to word indices
+              var charPos = 0;
+              for (var wi = 0; wi < wordsArray.length; wi++) {
+                var wEnd = charPos + wordsArray[wi].length;
+                // If this word overlaps with the glossary term range
+                if (charPos < foundAt + termForLang.length && wEnd > foundAt && wordsArray[wi].trim()) {
+                  glossaryWordMap[wi] = { source: seg.source, termId: seg.term_id };
+                }
+                charPos = wEnd;
+              }
+            }
+          }
+        }
         
+        // ── Step 2: Build memory edit lookup ──
+        var langEdits = (userEditsState || []).filter(function(e) { return e.targetLanguage === code; });
+        
+        // ── Step 3: Render each word ──
         for (var wIdx = 0; wIdx < wordsArray.length; wIdx++) {
           var wordToken = wordsArray[wIdx];
           if (!wordToken.trim()) {
-            // It's whitespace
             htmlParts.push(wordToken.replace(/\n/g, '<br>'));
             continue;
           }
           
-          var cleanWord = wordToken.replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,"").toLowerCase();
+          var cleanWord = wordToken.replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,'').toLowerCase();
           
-          // Check against Glossary first — match by glossary target term for this language
-          var isGlossary = false;
-          var glossTermSrc = '';
-          if (data.segments && useGlossary) {
-            for (var i = 0; i < data.segments.length; i++) {
-              var seg = data.segments[i];
-              if (seg && seg.is_glossary && chipStates[seg.term_id] !== false) {
-                var termForLang = (seg['term_' + code] || seg.translation || '').toLowerCase();
-                // Try exact word match first
-                if (cleanWord === termForLang) {
-                  isGlossary = true;
-                  glossTermSrc = seg.source;
-                  break;
-                }
-                // Also check if the clean word is contained in (or contains) the glossary term
-                // This handles cases where the glossary replacement has different punctuation or casing
-                if (termForLang && cleanWord.length >= 2 && (
-                  cleanWord.indexOf(termForLang) > -1 || termForLang.indexOf(cleanWord) > -1
-                )) {
-                  isGlossary = true;
-                  glossTermSrc = seg.source;
-                  break;
-                }
-              }
-            }
+          // ── Check glossary (pre-computed) ──
+          if (glossaryWordMap[wIdx]) {
+            htmlParts.push('<span class="glossary-word" title="Glossary: ' + escapeHtml(glossaryWordMap[wIdx].source) + '">' + escapeHtml(wordToken) + '</span>');
+            continue;
           }
           
-          if (isGlossary) {
-             htmlParts.push('<span class="glossary-word" title="Glossary: ' + escapeHtml(glossTermSrc) + '">' + escapeHtml(wordToken) + '</span>');
-             continue;
-          }
-          
-          // Check against User Edits — match by google translation word OR user-edited word
+          // ── Check memory edits ──
           var matchedEdit = null;
           for (var e = 0; e < langEdits.length; e++) {
-             var gWordLower = (langEdits[e].googleTranslation || '').replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,'').toLowerCase();
-             var uWordLower = (langEdits[e].userTranslation || '').replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,'').toLowerCase();
-             
-             if (gWordLower && cleanWord === gWordLower) {
-               matchedEdit = langEdits[e]; break;
-             }
-             if (uWordLower && cleanWord === uWordLower && memoryChipStates[langEdits[e].editId]) {
-               matchedEdit = langEdits[e]; break;
-             }
+            var ed = langEdits[e];
+            var gWords = (ed.googleTranslation || '').replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,'').toLowerCase().split(/\s+/);
+            var uWords = (ed.userTranslation || '').replace(/[.,/#!$%^&*;:{}=\-_`~()\u060C\u061B\u061F]/g,'').toLowerCase().split(/\s+/);
+            
+            // Match against any word in the google translation (handles multi-word)
+            for (var gw = 0; gw < gWords.length; gw++) {
+              if (gWords[gw] && cleanWord === gWords[gw]) { matchedEdit = ed; break; }
+            }
+            if (matchedEdit) break;
+            
+            // Match against user translation words if chip is on
+            if (memoryChipStates[ed.editId]) {
+              for (var uw = 0; uw < uWords.length; uw++) {
+                if (uWords[uw] && cleanWord === uWords[uw]) { matchedEdit = ed; break; }
+              }
+              if (matchedEdit) break;
+            }
           }
           
           var displayWord = wordToken;
           var classes = ['tgt-word'];
-          // For data-source, always try to use the actual source word from the edit, 
-          // or fall back to mapping from source text
-          var sourceWordForAttr = matchedEdit ? matchedEdit.sourceWord : '';
           var dataset = ' data-raw="' + escapeHtml(cleanWord) + '" data-lang="' + code + '" data-idx="' + wIdx + '"';
           var titleAttr = '';
           var dotHtml = '';
           
           if (matchedEdit) {
-            console.log('[DEBUG][rerender]   Word "' + cleanWord + '" MATCHED edit. src="' + matchedEdit.sourceWord + '" google="' + matchedEdit.googleTranslation + '" chipOn:', memoryChipStates[matchedEdit.editId]);
             dataset += ' data-google="' + escapeHtml(matchedEdit.googleTranslation || cleanWord) + '"';
             dataset += ' data-source="' + escapeHtml(matchedEdit.sourceWord) + '"';
             classes.push('has-user-edit');
@@ -719,11 +725,9 @@
             
             if (memoryChipStates[matchedEdit.editId]) {
               classes.push('is-user-edited');
-              // Replace this word with the user's preferred translation
               var replaceRegex;
               try { replaceRegex = new RegExp(escapeRegex(cleanWord), 'i'); } catch(re) { replaceRegex = cleanWord; }
               displayWord = wordToken.replace(replaceRegex, matchedEdit.userTranslation);
-              console.log('[DEBUG][rerender]   Applied: "' + wordToken + '" → "' + displayWord + '"');
               dataset += ' data-saved="' + escapeHtml(matchedEdit.userTranslation) + '"';
               dataset += ' data-edit-id="' + matchedEdit.editId + '"';
               titleAttr = ' title="Memory: Edit applied"';
@@ -733,9 +737,8 @@
               titleAttr = ' title="Memory: You have a saved edit for this"';
             }
           } else {
-             dataset += ' data-google="' + escapeHtml(cleanWord) + '"';
-             // Set data-source to the word itself — the popover will use this as the "what word is this in source"
-             dataset += ' data-source="' + escapeHtml(cleanWord) + '"';
+            dataset += ' data-google="' + escapeHtml(cleanWord) + '"';
+            dataset += ' data-source="' + escapeHtml(cleanWord) + '"';
           }
           
           htmlParts.push('<span class="' + classes.join(' ') + '"' + dataset + titleAttr + ' onclick="openEditPopover(this)">' + escapeHtml(displayWord) + dotHtml + '</span>');
@@ -743,7 +746,7 @@
 
         out.innerHTML = htmlParts.join('');
         var cnt = document.getElementById('count-' + code);
-        if (cnt) cnt.textContent = (data.full_translation || '').length;
+        if (cnt) cnt.textContent = fullText.length;
       }
       console.log('[DEBUG][rerender] ──── RERENDER DONE ────');
       lucide.createIcons();
@@ -1413,7 +1416,7 @@
     });
 
     // Initialize
-    syncTargetPills(); buildTargetPanels();
+    syncTargetPills(); buildTargetPanels(); updateAcDirection();
     var stored = sessionStorage.getItem('loadSession');
     if (stored) {
       sessionStorage.removeItem('loadSession');

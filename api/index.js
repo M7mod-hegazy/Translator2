@@ -71,6 +71,7 @@ app.use('/auth', require('../routes/auth'));
 app.use('/translate', require('../routes/translate'));
 app.use('/projects', require('../routes/projects'));
 app.use('/glossary', require('../routes/glossary'));
+app.use('/memory', require('../routes/memory'));
 app.use('/admin', require('../routes/admin'));
 app.use('/api', require('../routes/api'));
 app.use('/api/translate', require('../routes/translateApi'));
