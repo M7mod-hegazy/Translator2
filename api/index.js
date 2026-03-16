@@ -26,6 +26,43 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Static files - serve before session/auth middleware
+app.use(express.static(path.join(__dirname, '../public')));
+
+// View engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, '../views'));
+
+// Global mongoose connection cache
+let cachedDb = null;
+
+async function connectToDatabase() {
+  if (cachedDb && cachedDb.readyState === 1) {
+    return cachedDb;
+  }
+  if (!process.env.MONGODB_URI) {
+    throw new Error('MONGODB_URI is missing');
+  }
+  
+  const conn = await mongoose.connect(process.env.MONGODB_URI, {
+    bufferCommands: false,
+    serverSelectionTimeoutMS: 10000
+  });
+  cachedDb = conn.connection;
+  return cachedDb;
+}
+
+// Middleware to ensure DB connection
+app.use(async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    next();
+  } catch (err) {
+    console.error('DB connection error:', err);
+    res.status(500).json({ error: 'Database connection failed' });
+  }
+});
+
 // Session configuration
 app.use(session({
   name: process.env.SESSION_COOKIE_NAME || 'orbis.sid',
@@ -50,39 +87,6 @@ app.use(session({
 require('../config/passport');
 app.use(passport.initialize());
 app.use(passport.session());
-
-// View engine
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, '../views'));
-
-// Static files - serve from parent directory
-app.use(express.static(path.join(__dirname, '../public')));
-
-// Global mongoose connection cache
-let cachedDb = null;
-
-async function connectToDatabase() {
-  if (cachedDb && cachedDb.readyState === 1) {
-    return cachedDb;
-  }
-  
-  const conn = await mongoose.connect(process.env.MONGODB_URI, {
-    bufferCommands: false,
-  });
-  cachedDb = conn.connection;
-  return cachedDb;
-}
-
-// Middleware to ensure DB connection
-app.use(async (req, res, next) => {
-  try {
-    await connectToDatabase();
-    next();
-  } catch (err) {
-    console.error('DB connection error:', err);
-    res.status(500).json({ error: 'Database connection failed' });
-  }
-});
 
 // Routes
 app.use('/', require('../routes/index'));
