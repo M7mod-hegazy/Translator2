@@ -879,14 +879,19 @@
       try {
         const res = await fetch('/auth/login', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: form.username.value,
             password: form.password.value
           })
         });
-        
-        const result = await res.json();
+        let result = null;
+        try {
+          result = await res.json();
+        } catch (e) {
+          result = { error: 'Unexpected server response' };
+        }
         
         if (result.success) {
           window.location.href = '/';

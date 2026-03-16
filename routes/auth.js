@@ -4,6 +4,15 @@ const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { ensureGuest, ensureAuth } = require('../middleware/auth');
+const isProduction = process.env.NODE_ENV === 'production';
+
+const authMeta = (req) => ({
+  ip: req.headers['x-forwarded-for'] || req.ip || '',
+  ua: req.headers['user-agent'] || '',
+  host: req.headers.host || '',
+  secure: req.secure,
+  hasSession: !!req.session
+});
 
 // Login page
 router.get('/login', ensureGuest, (req, res) => {
@@ -16,25 +25,59 @@ router.get('/login', ensureGuest, (req, res) => {
 
 // Login process
 router.post('/login', (req, res, next) => {
-  console.log('Login attempt:', req.body.username);
+  console.log('[auth/login] attempt', {
+    identifier: req.body.username,
+    ...authMeta(req)
+  });
   
   passport.authenticate('local', (err, user, info) => {
     if (err) {
-      console.error('Passport error:', err);
+      console.error('[auth/login] passport error:', err);
       return res.status(500).json({ error: 'Server error' });
     }
     if (!user) {
-      console.log('No user found:', info);
+      console.log('[auth/login] denied:', info);
       return res.status(401).json({ error: info.message || 'Invalid credentials' });
     }
-    req.logIn(user, (err) => {
-      if (err) {
-        console.error('Login error:', err);
+    const finalizeLogin = () => req.logIn(user, (loginErr) => {
+      if (loginErr) {
+        console.error('[auth/login] login error:', loginErr);
         return res.status(500).json({ error: 'Login failed' });
       }
-      console.log('Login successful:', user.username, user.role);
+      if (req.session) {
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error('[auth/login] session save error:', saveErr);
+            return res.status(500).json({ error: 'Session persistence failed' });
+          }
+          console.log('[auth/login] success', {
+            user: user.username,
+            role: user.role,
+            sessionId: req.sessionID,
+            secureCookie: !!(req.session.cookie && req.session.cookie.secure),
+            sameSite: req.session.cookie && req.session.cookie.sameSite
+          });
+          return res.json({
+            success: true,
+            user: { id: user._id, username: user.username, email: user.email, role: user.role },
+            diagnostic: isProduction ? undefined : { sessionId: req.sessionID }
+          });
+        });
+        return;
+      }
+      console.log('[auth/login] success without session object', { user: user.username });
       return res.json({ success: true, user: { id: user._id, username: user.username, email: user.email, role: user.role } });
     });
+    if (req.session && typeof req.session.regenerate === 'function') {
+      return req.session.regenerate((regenErr) => {
+        if (regenErr) {
+          console.error('[auth/login] session regenerate error:', regenErr);
+          return res.status(500).json({ error: 'Session initialization failed' });
+        }
+        return finalizeLogin();
+      });
+    }
+    return finalizeLogin();
   })(req, res, next);
 });
 
@@ -111,6 +154,7 @@ router.get('/me', (req, res) => {
   if (req.isAuthenticated && req.isAuthenticated()) {
     res.json({ user: { id: req.user._id, username: req.user.username, email: req.user.email, role: req.user.role } });
   } else {
+    console.log('[auth/me] unauthenticated', authMeta(req));
     res.json({ user: null });
   }
 });

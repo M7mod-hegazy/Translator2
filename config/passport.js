@@ -5,13 +5,25 @@ const bcrypt = require('bcryptjs');
 const passport = require('passport');
 const User = require('../models/User');
 
+const escapeRegExp = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // Local Strategy for login
 passport.use(
   new LocalStrategy(async (username, password, done) => {
     try {
-      console.log('LocalStrategy - looking for user:', username);
-      // Case-insensitive username search
-      const user = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
+      const identifier = String(username || '').trim();
+      console.log('LocalStrategy - lookup identifier:', identifier);
+      if (!identifier) {
+        return done(null, false, { message: 'Username or email is required' });
+      }
+      const safeIdentifier = escapeRegExp(identifier);
+      const matcher = new RegExp(`^${safeIdentifier}$`, 'i');
+      const user = await User.findOne({
+        $or: [
+          { username: { $regex: matcher } },
+          { email: { $regex: matcher } }
+        ]
+      });
       if (!user) {
         console.log('LocalStrategy - user not found');
         return done(null, false, { message: 'Invalid username or password' });
