@@ -52,10 +52,34 @@ function textContainsNormalizedTerm(text, term) {
   return false;
 }
 
+function normalizeSpeechLanguage(value) {
+  const normalized = String(value || '').toLowerCase().split('-')[0];
+  const supported = new Set(['en', 'ar', 'es']);
+  return supported.has(normalized) ? normalized : 'en';
+}
+
+function normalizeSpeechMimeType(value) {
+  const raw = String(value || '').toLowerCase().trim();
+  if (!raw) return 'audio/webm';
+  if (raw.startsWith('audio/webm')) return 'audio/webm';
+  if (raw.startsWith('audio/ogg')) return 'audio/ogg';
+  if (raw.startsWith('audio/mp4')) return 'audio/mp4';
+  if (raw.startsWith('audio/mpeg')) return 'audio/mpeg';
+  return 'audio/webm';
+}
+
+function pickSpeechModel(lang) {
+  return lang === 'ar' ? 'whisper-large-v3' : 'whisper-large-v3-turbo';
+}
+
 // Speech-to-text using Groq Whisper (free tier)
 router.post('/speech-to-text', async (req, res) => {
   try {
-    const { audio, lang } = req.body;
+    const { audio, lang, mime_type } = req.body;
+    const speechLang = normalizeSpeechLanguage(lang);
+    const mimeType = normalizeSpeechMimeType(mime_type);
+    const speechModel = pickSpeechModel(speechLang);
+    const prompt = speechLang === 'ar' ? 'يرجى نسخ الكلام العربي كما هو دون ترجمة.' : '';
     
     if (!audio) {
       return res.status(400).json({ success: false, error: 'No audio data' });
@@ -81,16 +105,21 @@ router.post('/speech-to-text', async (req, res) => {
     
     // File part
     parts.push(`--${boundary}\r\n`);
-    parts.push(`Content-Disposition: form-data; name="file"; filename="audio.webm"\r\n`);
-    parts.push(`Content-Type: audio/webm\r\n\r\n`);
+    parts.push(`Content-Disposition: form-data; name="file"; filename="audio.${mimeType.split('/')[1]}"\r\n`);
+    parts.push(`Content-Type: ${mimeType}\r\n\r\n`);
     
     const bodyParts = [
       Buffer.from(parts.join(''), 'utf8'),
       audioBuffer,
       Buffer.from(`\r\n--${boundary}\r\n`, 'utf8'),
-      Buffer.from(`Content-Disposition: form-data; name="model"\r\n\r\nwhisper-large-v3-turbo\r\n`, 'utf8'),
+      Buffer.from(`Content-Disposition: form-data; name="model"\r\n\r\n${speechModel}\r\n`, 'utf8'),
       Buffer.from(`--${boundary}\r\n`, 'utf8'),
-      Buffer.from(`Content-Disposition: form-data; name="language"\r\n\r\n${lang || 'en'}\r\n`, 'utf8'),
+      Buffer.from(`Content-Disposition: form-data; name="language"\r\n\r\n${speechLang}\r\n`, 'utf8'),
+      Buffer.from(`--${boundary}\r\n`, 'utf8'),
+      Buffer.from(`Content-Disposition: form-data; name="temperature"\r\n\r\n0\r\n`, 'utf8'),
+      Buffer.from(`--${boundary}\r\n`, 'utf8'),
+      Buffer.from(`Content-Disposition: form-data; name="response_format"\r\n\r\nverbose_json\r\n`, 'utf8'),
+      Buffer.from(prompt ? `--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n${prompt}\r\n` : '', 'utf8'),
       Buffer.from(`--${boundary}--\r\n`, 'utf8')
     ];
     
@@ -112,7 +141,7 @@ router.post('/speech-to-text', async (req, res) => {
     }
     
     const result = await groqRes.json();
-    res.json({ success: true, text: result.text || '' });
+    res.json({ success: true, text: result.text || '', lang: speechLang, model: speechModel });
   } catch (err) {
     console.error('Speech-to-text error:', err);
     res.json({ success: false, error: err.message });

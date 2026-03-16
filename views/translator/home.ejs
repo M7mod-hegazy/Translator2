@@ -121,9 +121,6 @@
                 <textarea class="translate-input" id="source-text" placeholder="Type or paste text here..." autofocus autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
                 <div class="ghost-overlay" id="ghost-overlay"></div>
                 <div class="ac-dropdown" id="ac-dropdown" style="display:none;"></div>
-                <div id="recording-indicator" style="display:none;position:absolute;top:8px;right:8px;background:rgba(239,68,68,0.9);color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:500;animation:pulse 1s infinite;">
-                  <span style="display:inline-block;width:6px;height:6px;background:#fff;border-radius:50%;margin-right:6px;"></span>Recording...
-                </div>
               </div>
               <div class="panel-footer">
                 <span class="char-count" id="source-count">0</span>
@@ -132,6 +129,9 @@
                   <button class="btn btn-ghost btn-sm" id="text-decrease" title="Decrease text size" style="padding:2px 6px;font-size:10px;">A-</button>
                   <button class="btn btn-ghost btn-sm" id="text-increase" title="Increase text size" style="padding:2px 6px;font-size:12px;">A+</button>
                   <button class="btn btn-ghost btn-sm" id="voice-btn" title="Voice input"><i data-lucide="mic" style="width:14px;height:14px;"></i></button>
+                  <div id="recording-indicator" style="display:none;align-items:center;background:rgba(239,68,68,0.9);color:#fff;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:500;animation:pulse 1s infinite;line-height:1;">
+                    <span style="display:inline-block;width:6px;height:6px;background:#fff;border-radius:50%;margin-right:6px;"></span>Recording...
+                  </div>
                 </div>
                 <button class="btn btn-ghost btn-sm" id="new-conversation-btn" title="Start new conversation" style="font-size:11px;padding:3px 10px;">
                   <i data-lucide="plus" style="width:12px;height:12px;"></i> New
@@ -332,6 +332,41 @@
       if (textSize > 10) { textSize -= 2; applyTextSize(); }
     });
 
+    var speechLangBySource = {
+      en: 'en',
+      ar: 'ar',
+      es: 'es'
+    };
+    var supportedSpeechLangSet = new Set(Object.keys(speechLangBySource));
+    function normalizeSpeechLangCode(value) {
+      var normalized = String(value || '').toLowerCase().split('-')[0];
+      return supportedSpeechLangSet.has(normalized) ? normalized : null;
+    }
+    function getSpeechLangFromSource(sourceCode) {
+      var normalized = normalizeSpeechLangCode(sourceCode);
+      return normalized ? speechLangBySource[normalized] : null;
+    }
+    function getActiveSourceLangCode() {
+      var activePill = document.querySelector('.src-pill.is-active');
+      var code = activePill ? activePill.getAttribute('data-code') : currentSourceLang;
+      return normalizeSpeechLangCode(code) || 'en';
+    }
+    function pickSpeechRecorderMimeType() {
+      if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return '';
+      var candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/ogg'
+      ];
+      for (var i = 0; i < candidates.length; i++) {
+        if (MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
+      }
+      return '';
+    }
+    var currentRecordingSpeechLang = 'en';
+    var currentRecordingMimeType = 'audio/webm';
+
     // Voice input using MediaRecorder + backend Whisper API
     var mediaRecorder = null;
     var audioChunks = [];
@@ -342,9 +377,27 @@
     if (voiceBtn && navigator.mediaDevices) {
       voiceBtn.addEventListener('click', async function() {
         if (!isRecording) {
+          var speechLang = getSpeechLangFromSource(getActiveSourceLangCode());
+          if (!speechLang) {
+            Toast.error('Source language must be Arabic, English, or Spanish');
+            return;
+          }
+          currentRecordingSpeechLang = speechLang;
           try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                channelCount: 1,
+                sampleRate: 48000,
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+              }
+            });
+            var preferredMimeType = pickSpeechRecorderMimeType();
+            currentRecordingMimeType = preferredMimeType || 'audio/webm';
+            var recorderOptions = { audioBitsPerSecond: 192000 };
+            if (preferredMimeType) recorderOptions.mimeType = preferredMimeType;
+            mediaRecorder = new MediaRecorder(stream, recorderOptions);
             audioChunks = [];
             
             mediaRecorder.ondataavailable = function(e) { audioChunks.push(e.data); };
@@ -353,13 +406,13 @@
               stream.getTracks().forEach(t => t.stop());
               recordingIndicator.style.display = 'none';
               voiceBtn.style.color = '';
-              const blob = new Blob(audioChunks, { type: 'audio/webm' });
+              const blob = new Blob(audioChunks, { type: currentRecordingMimeType || 'audio/webm' });
               
               // Convert to base64
               const reader = new FileReader();
               reader.onload = async function() {
                 const base64 = reader.result.split(',')[1];
-                const lang = currentSourceLang === 'ar' ? 'ar' : currentSourceLang === 'es' ? 'es' : 'en';
+                const lang = currentRecordingSpeechLang;
                 
                 Toast.success('Processing voice...');
                 
@@ -367,7 +420,7 @@
                   const res = await fetch('/api/speech-to-text', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ audio: base64, lang: lang })
+                    body: JSON.stringify({ audio: base64, lang: lang, mime_type: currentRecordingMimeType })
                   });
                   const data = await res.json();
                   
@@ -388,7 +441,8 @@
             mediaRecorder.start();
             isRecording = true;
             voiceBtn.style.color = '#ef4444';
-            recordingIndicator.style.display = 'block';
+            recordingIndicator.innerHTML = '<span style="display:inline-block;width:6px;height:6px;background:#fff;border-radius:50%;margin-right:6px;"></span>Recording...';
+            recordingIndicator.style.display = 'inline-flex';
             Toast.success('Recording... Click to stop');
             
             // Auto-stop after 30 seconds
@@ -455,9 +509,14 @@
     }
 
     function setSourceLang(code) {
-      currentSourceLang = code;
-      document.querySelectorAll('.src-pill').forEach(function(p) { p.classList.toggle('is-active', p.dataset.code === code); });
-      activeTargets = activeTargets.filter(function(t) { return t !== code; });
+      var normalizedCode = normalizeSpeechLangCode(code);
+      if (!normalizedCode) {
+        Toast.error('Source language must be Arabic, English, or Spanish');
+        return;
+      }
+      currentSourceLang = normalizedCode;
+      document.querySelectorAll('.src-pill').forEach(function(p) { p.classList.toggle('is-active', p.dataset.code === normalizedCode); });
+      activeTargets = activeTargets.filter(function(t) { return t !== normalizedCode; });
       syncTargetPills(); buildTargetPanels();
       updateAcDirection();
       if (catSelect.value) loadDrawerTerms(catSelect.value);
@@ -478,9 +537,14 @@
       if (!activeTargets.length) return;
       var oldSource = currentSourceLang;
       var newSource = activeTargets[0];
-      currentSourceLang = newSource;
+      var normalizedSource = normalizeSpeechLangCode(newSource);
+      if (!normalizedSource) {
+        Toast.error('Source language must be Arabic, English, or Spanish');
+        return;
+      }
+      currentSourceLang = normalizedSource;
       activeTargets = [oldSource];
-      document.querySelectorAll('.src-pill').forEach(function(p) { p.classList.toggle('is-active', p.dataset.code === newSource); });
+      document.querySelectorAll('.src-pill').forEach(function(p) { p.classList.toggle('is-active', p.dataset.code === normalizedSource); });
       syncTargetPills(); buildTargetPanels();
       updateAcDirection();
       // Swap text: put the translation into source
