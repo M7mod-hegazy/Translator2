@@ -18,7 +18,7 @@ const languages = [
 
 async function seed() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://m7mod:275757@cluster0.vu5wnwn.mongodb.net/?appName=Cluster0');
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://m7mod:275757@cluster0.vu5wnwn.mongodb.net/translator?appName=Cluster0');
     console.log('MongoDB connected');
 
     // Clear existing languages

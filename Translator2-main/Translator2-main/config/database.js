@@ -10,7 +10,7 @@ const connectDB = async () => {
   }
   
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://m7mod:275757@cluster0.vu5wnwn.mongodb.net/?appName=Cluster0', {
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://m7mod:275757@cluster0.vu5wnwn.mongodb.net/translator?appName=Cluster0', {
       bufferCommands: false,
       serverSelectionTimeoutMS: 5000,
     });
