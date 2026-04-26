@@ -1,0 +1,18 @@
+/* ═══════════════════════════════════════════════════════════
+   Mobile — Full-screen overlay nav (same as admin), no bottom bar
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .main-content {
+    background: #080b18;
+  }
+
+  .page-body {
+    background: #080b18;
+  }
+
+  /* Hide redundant address bar on mobile */
+  .address-bar {
+    display: none !important;
+  }
+}
